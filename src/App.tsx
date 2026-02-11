@@ -4,7 +4,7 @@ import useImage from 'use-image';
 import { 
   Settings, Printer, Upload, Type, Image as ImageIcon, 
   Trash2, Save, CheckCircle2, ChevronRight, Download,
-  Edit3, RotateCw, FolderOpen, X, ZoomIn
+  Edit3, RotateCw, FolderOpen, X, ZoomIn, Palette
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -61,16 +61,15 @@ const PhotoEditor = ({
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const [rotation, setRotation] = useState(0);
+  const [removeBackground, setRemoveBackground] = useState(false);
 
   const createImage = (url: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
       const image = new Image();
       image.addEventListener('load', () => {
-        // Garantir que as dimensões naturais estejam disponíveis
         if (image.naturalWidth && image.naturalHeight) {
           resolve(image);
         } else {
-          // Se não tiver naturalWidth/Height, usar width/height
           resolve(image);
         }
       });
@@ -78,12 +77,55 @@ const PhotoEditor = ({
       image.src = url;
     });
 
+  const removeBackgroundFromImage = async (imageUrl: string): Promise<string> => {
+    // Simulação de remoção de fundo - na prática você usaria uma API como remove.bg
+    // Por agora, vamos aplicar um filtro simples para simular
+    const image = await createImage(imageUrl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return imageUrl;
+
+    canvas.width = image.width;
+    canvas.height = image.height;
+
+    // Desenhar imagem original
+    ctx.drawImage(image, 0, 0);
+
+    // Aplicar filtro simples para simular remoção de fundo
+    // Em produção, você usaria uma API real de remoção de fundo
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    // Threshold simples para remover fundo claro (simulação)
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      
+      // Se o pixel for muito claro, torná-lo transparente
+      if (r > 200 && g > 200 && b > 200) {
+        data[i + 3] = 0; // Alpha channel
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    return canvas.toDataURL('image/png');
+  };
+
   const getCroppedImg = async (
     imageSrc: string,
     pixelCrop: any,
     rotation = 0
   ): Promise<string> => {
-    const image = await createImage(imageSrc);
+    let processedImageSrc = imageSrc;
+    
+    // Aplicar remoção de fundo se ativado
+    if (removeBackground) {
+      processedImageSrc = await removeBackgroundFromImage(imageSrc);
+    }
+
+    const image = await createImage(processedImageSrc);
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
@@ -138,10 +180,10 @@ const PhotoEditor = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-xl max-w-5xl w-full max-h-[95vh] overflow-hidden">
         <div className="bg-green-700 text-white p-4 flex justify-between items-center">
           <h3 className="text-lg font-bold flex items-center gap-2">
-            <Edit3 size={20} /> Editor de Foto
+            <Edit3 size={20} /> Editor de Foto Avançado
           </h3>
           <button onClick={onClose} className="hover:bg-green-600 p-1 rounded">
             <X size={20} />
@@ -164,51 +206,89 @@ const PhotoEditor = ({
             />
           </div>
           
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <ZoomIn size={16} className="inline mr-1" /> Zoom
-              </label>
-              <input
-                type="range"
-                value={zoom}
-                min={1}
-                max={3}
-                step={0.1}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <ZoomIn size={16} className="inline mr-1" /> Zoom (arraste para ajustar posição)
+                </label>
+                <input
+                  type="range"
+                  value={zoom}
+                  min={0.5}
+                  max={3}
+                  step={0.1}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0.5x</span>
+                  <span>Atual: {zoom.toFixed(1)}x</span>
+                  <span>3x</span>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <RotateCw size={16} className="inline mr-1" /> Rotação
+                </label>
+                <input
+                  type="range"
+                  value={rotation}
+                  min={0}
+                  max={360}
+                  step={1}
+                  onChange={(e) => setRotation(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0°</span>
+                  <span>{rotation}°</span>
+                  <span>360°</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={removeBackground}
+                    onChange={(e) => setRemoveBackground(e.target.checked)}
+                    className="rounded"
+                  />
+                  <Palette size={16} className="inline mr-1" />
+                  Remover Fundo (simulação)
+                </label>
+                <p className="text-xs text-gray-500 mt-1">Remove fundos claros automaticamente</p>
+              </div>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <RotateCw size={16} className="inline mr-1" /> Rotação
-              </label>
-              <input
-                type="range"
-                value={rotation}
-                min={0}
-                max={360}
-                step={1}
-                onChange={(e) => setRotation(Number(e.target.value))}
-                className="w-full"
-              />
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h4 className="font-medium text-blue-900 mb-2">💡 Dicas de Uso:</h4>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Arraste a imagem para centralizar</li>
+                  <li>• Use o scroll do mouse para zoom</li>
+                  <li>• O zoom começa do centro da imagem</li>
+                  <li>• Ative "Remover Fundo" para fundos claros</li>
+                </ul>
+              </div>
             </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={handleSave}
-                className="flex-1 bg-green-700 hover:bg-green-800 text-white py-2 px-4 rounded-lg font-medium flex items-center justify-center gap-2"
-              >
-                <Save size={16} /> Salvar Foto
-              </button>
-              <button
-                onClick={onClose}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium"
-              >
-                Cancelar
-              </button>
-            </div>
+          </div>
+          
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={handleSave}
+              className="flex-1 bg-green-700 hover:bg-green-800 text-white py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2 transition-all"
+            >
+              <Save size={16} /> Salvar Foto
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 px-4 rounded-lg font-medium transition-all"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
       </div>
@@ -322,7 +402,6 @@ export default function App() {
             />
           ) : (
             <GeneratorModule 
-              template={currentTemplate}
               backToAdmin={() => setMode('admin')} 
             />
           )}
@@ -629,14 +708,31 @@ const CanvasEditor = ({ bgSrc, fields, selectedId, onSelect, onChange }: any) =>
 };
 
 // --- MÓDULO GERADOR (OPERAÇÃO) ---
-function GeneratorModule({ template, backToAdmin }: { template: TemplateData, backToAdmin: () => void }) {
+function GeneratorModule({ backToAdmin }: { backToAdmin: () => void }) {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [userPhotos, setUserPhotos] = useState<Record<string, string>>({});
   const [editingPhoto, setEditingPhoto] = useState<{ fieldName: string; url: string } | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateData | null>(null);
+  const [showTemplateSelection, setShowTemplateSelection] = useState(true);
   const stageFrontRef = useRef<any>(null);
   const stageBackRef = useRef<any>(null);
 
-  const allFields = [...template.frenteCampos, ...template.versoCampos];
+  // Carregar templates salvos
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  
+  useEffect(() => {
+    const stored = localStorage.getItem('oab-templates');
+    if (stored) {
+      setSavedTemplates(JSON.parse(stored));
+    }
+  }, []);
+
+  const selectTemplate = (templateData: TemplateData) => {
+    setSelectedTemplate(templateData);
+    setShowTemplateSelection(false);
+  };
+
+  const allFields = selectedTemplate ? [...selectedTemplate.frenteCampos, ...selectedTemplate.versoCampos] : [];
   const uniqueTextFields = Array.from(new Set(allFields.filter(f => f.type === 'texto').map(f => f.name)));
   const uniquePhotoFields = Array.from(new Set(allFields.filter(f => f.type === 'foto').map(f => f.name)));
 
@@ -675,9 +771,80 @@ function GeneratorModule({ template, backToAdmin }: { template: TemplateData, ba
     }
   };
 
+  // Se não há template selecionado, mostrar seleção
+  if (showTemplateSelection) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="max-w-4xl w-full">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">Selecione um Template</h2>
+              <p className="text-gray-600">Escolha um template existente ou crie um novo para emitir carteirinhas</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {savedTemplates.length === 0 ? (
+                <div className="col-span-full text-center py-12">
+                  <FolderOpen size={48} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500 text-lg">Nenhum template encontrado</p>
+                  <p className="text-gray-400 text-sm mt-2">Crie um template primeiro no modo admin</p>
+                </div>
+              ) : (
+                savedTemplates.map(t => (
+                  <div key={t.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200 hover:border-green-500 transition-all cursor-pointer" onClick={() => selectTemplate(t.data)}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-green-700 rounded-lg flex items-center justify-center">
+                        <Printer size={20} className="text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-gray-800">{t.name}</h3>
+                        <p className="text-sm text-gray-500">Template salvo</p>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <p>• {t.data.frenteCampos.length} campos (frente)</p>
+                      <p>• {t.data.versoCampos.length} campos (verso)</p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                onClick={backToAdmin}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-medium transition-all"
+              >
+                <Settings size={16} className="inline mr-2" />
+                Criar Novo Template
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Cabeçalho com Template Selecionado */}
+        <div className="lg:col-span-12 bg-white rounded-xl shadow-md border border-gray-200 p-4 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Template: {selectedTemplate?.name}</h2>
+              <p className="text-sm text-gray-600">Emitindo carteirinha com este template</p>
+            </div>
+            <button 
+              onClick={() => setShowTemplateSelection(true)}
+              className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg font-medium transition-all"
+            >
+              <FolderOpen size={16} className="inline mr-2" />
+              Trocar Template
+            </button>
+          </div>
+        </div>
+
         {/* FORMULÁRIO */}
         <div className="lg:col-span-4 bg-white rounded-xl shadow-md border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
@@ -737,13 +904,13 @@ function GeneratorModule({ template, backToAdmin }: { template: TemplateData, ba
             <h3 className="font-bold text-gray-600 uppercase tracking-wider text-sm">Preview em Tempo Real</h3>
           </div>
 
-          {template.frenteImg && (
+          {selectedTemplate?.frenteImg && (
             <div className="flex justify-center">
               <div className="shadow-2xl border-4 border-white bg-white rounded-lg">
                 <PreviewStage 
                   refStage={stageFrontRef}
-                  bg={template.frenteImg} 
-                  fields={template.frenteCampos} 
+                  bg={selectedTemplate.frenteImg} 
+                  fields={selectedTemplate.frenteCampos} 
                   data={formData} 
                   photos={userPhotos} 
                 />
@@ -751,13 +918,13 @@ function GeneratorModule({ template, backToAdmin }: { template: TemplateData, ba
             </div>
           )}
 
-          {template.versoImg && (
+          {selectedTemplate?.versoImg && (
             <div className="flex justify-center">
               <div className="shadow-2xl border-4 border-white bg-white rounded-lg">
                 <PreviewStage 
                   refStage={stageBackRef}
-                  bg={template.versoImg} 
-                  fields={template.versoCampos} 
+                  bg={selectedTemplate.versoImg} 
+                  fields={selectedTemplate.versoCampos} 
                   data={formData} 
                   photos={userPhotos} 
                 />
