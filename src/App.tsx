@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Image as KonvaImage, Text, Rect, Transformer } from 'react-konva';
 import useImage from 'use-image';
 import { 
-  Settings, Printer, Upload, Plus, Type, Image as ImageIcon, 
-  Trash2, Move, Save, CheckCircle2, ChevronRight, Download
+  Settings, Printer, Upload, Type, Image as ImageIcon, 
+  Trash2, Save, CheckCircle2, ChevronRight, Download,
+  Edit3, RotateCw, FolderOpen, X, ZoomIn
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import Cropper from 'react-easy-crop';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,72 +27,315 @@ interface Field {
   w: number;
   h: number;
   fontSize?: number;
+  fontFamily?: string;
+  color?: string;
 }
 
 interface TemplateData {
+  id: string;
+  name: string;
   frenteImg: string | null;
   versoImg: string | null;
   frenteCampos: Field[];
   versoCampos: Field[];
+  createdAt: string;
 }
+
+interface SavedTemplate {
+  id: string;
+  name: string;
+  data: TemplateData;
+}
+
+// --- COMPONENTE DE EDITOR DE FOTO ---
+const PhotoEditor = ({ 
+  imageUrl, 
+  onSave, 
+  onClose 
+}: { 
+  imageUrl: string; 
+  onSave: (croppedImageUrl: string) => void;
+  onClose: () => void;
+}) => {
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [rotation, setRotation] = useState(0);
+
+  const createImage = (url: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const image = new Image();
+      image.addEventListener('load', () => {
+        // Garantir que as dimensões naturais estejam disponíveis
+        if (image.naturalWidth && image.naturalHeight) {
+          resolve(image);
+        } else {
+          // Se não tiver naturalWidth/Height, usar width/height
+          resolve(image);
+        }
+      });
+      image.addEventListener('error', (error) => reject(error));
+      image.src = url;
+    });
+
+  const getCroppedImg = async (
+    imageSrc: string,
+    pixelCrop: any,
+    rotation = 0
+  ): Promise<string> => {
+    console.log('getCroppedImg - pixelCrop:', pixelCrop);
+    console.log('getCroppedImg - rotation:', rotation);
+    
+    const image = await createImage(imageSrc);
+    console.log('getCroppedImg - image dimensions:', image.width, 'x', image.height);
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      return '';
+    }
+
+    // Configurar o tamanho do canvas para o tamanho do crop
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+    console.log('getCroppedImg - canvas dimensions:', canvas.width, 'x', canvas.height);
+
+    // Limpar o canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Se houver rotação, aplicar transformação
+    if (rotation !== 0) {
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.translate(-canvas.width / 2, -canvas.height / 2);
+    }
+
+    // Desenhar a imagem cropada
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    if (rotation !== 0) {
+      ctx.restore();
+    }
+
+    const result = canvas.toDataURL('image/jpeg', 0.9);
+    console.log('getCroppedImg - result length:', result.length);
+    return result;
+  };
+
+  const handleSave = async () => {
+    try {
+      const croppedImageUrl = await getCroppedImg(imageUrl, croppedAreaPixels, rotation);
+      onSave(croppedImageUrl);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="bg-green-700 text-white p-4 flex justify-between items-center">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Edit3 size={20} /> Editor de Foto
+          </h3>
+          <button onClick={onClose} className="hover:bg-green-600 p-1 rounded">
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="p-6">
+          <div className="relative h-96 bg-gray-100 rounded-lg mb-4">
+            <Cropper
+              image={imageUrl}
+              crop={crop}
+              zoom={zoom}
+              rotation={rotation}
+              aspect={3/4}
+              onCropChange={setCrop}
+              onCropComplete={(croppedArea, croppedAreaPixels) => {
+                console.log('onCropComplete - croppedArea:', croppedArea);
+                console.log('onCropComplete - croppedAreaPixels:', croppedAreaPixels);
+                setCroppedAreaPixels(croppedAreaPixels);
+              }}
+              onZoomChange={setZoom}
+              onRotationChange={setRotation}
+              objectFit="contain"
+            />
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <ZoomIn size={16} className="inline mr-1" /> Zoom
+              </label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <RotateCw size={16} className="inline mr-1" /> Rotação
+              </label>
+              <input
+                type="range"
+                value={rotation}
+                min={0}
+                max={360}
+                step={1}
+                onChange={(e) => setRotation(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleSave}
+                className="flex-1 bg-green-700 hover:bg-green-800 text-white py-2 px-4 rounded-lg font-medium flex items-center justify-center gap-2"
+              >
+                <Save size={16} /> Salvar Foto
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // --- TELA PRINCIPAL ---
 export default function App() {
   const [mode, setMode] = useState<'admin' | 'gerador'>('admin');
-  
-  // Estado do Template
-  const [template, setTemplate] = useState<TemplateData>({
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [currentTemplate, setCurrentTemplate] = useState<TemplateData>({
+    id: '',
+    name: 'Novo Template',
     frenteImg: null,
     versoImg: null,
     frenteCampos: [],
-    versoCampos: []
+    versoCampos: [],
+    createdAt: new Date().toISOString()
   });
 
+  // Carregar templates salvos do localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('oab-templates');
+    if (stored) {
+      setSavedTemplates(JSON.parse(stored));
+    }
+  }, []);
+
+  const saveTemplate = () => {
+    const templateToSave: SavedTemplate = {
+      id: Date.now().toString(),
+      name: currentTemplate.name,
+      data: { ...currentTemplate }
+    };
+    
+    const updated = [...savedTemplates, templateToSave];
+    setSavedTemplates(updated);
+    localStorage.setItem('oab-templates', JSON.stringify(updated));
+    return templateToSave;
+  };
+
+  const loadTemplate = (template: SavedTemplate) => {
+    setCurrentTemplate(template.data);
+  };
+
+  const deleteTemplate = (id: string) => {
+    const updated = savedTemplates.filter(t => t.id !== id);
+    setSavedTemplates(updated);
+    localStorage.setItem('oab-templates', JSON.stringify(updated));
+  };
+
   return (
-    <div className="min-h-screen flex flex-col font-sans text-slate-800">
-      {/* HEADER */}
-      <header className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Printer size={24} />
+    <div className="min-h-screen flex flex-col font-sans bg-gray-50">
+      {/* HEADER OAB-SP STYLE */}
+      <header className="bg-gradient-to-r from-green-700 to-green-800 text-white shadow-lg sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="bg-white p-3 rounded-lg shadow-md">
+                <div className="w-8 h-8 bg-green-700 rounded flex items-center justify-center">
+                  <Printer size={20} className="text-white" />
+                </div>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">Sistema OAB-SP</h1>
+                <p className="text-green-100 text-sm">Emissão de Carteirinhas Digitais</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold leading-none">Sistema de Carteirinhas</h1>
-              <p className="text-xs text-slate-400">Versão PNG Pro</p>
+            
+            <div className="flex bg-green-900/50 p-1 rounded-lg backdrop-blur">
+              <button 
+                onClick={() => setMode('admin')}
+                className={cn(
+                  "px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all",
+                  mode === 'admin' 
+                    ? "bg-white text-green-700 shadow-md" 
+                    : "text-green-100 hover:text-white hover:bg-green-700/50"
+                )}
+              >
+                <Settings size={16} /> Criar Template
+              </button>
+              <button 
+                onClick={() => setMode('gerador')}
+                className={cn(
+                  "px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all",
+                  mode === 'gerador' 
+                    ? "bg-white text-green-700 shadow-md" 
+                    : "text-green-100 hover:text-white hover:bg-green-700/50"
+                )}
+              >
+                <Printer size={16} /> Emitir Carteirinha
+              </button>
             </div>
-          </div>
-          
-          <div className="flex bg-slate-800 p-1 rounded-lg">
-            <button 
-              onClick={() => setMode('admin')}
-              className={cn(
-                "px-4 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all",
-                mode === 'admin' ? "bg-blue-600 text-white shadow-md" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <Settings size={16} /> Criar Template
-            </button>
-            <button 
-              onClick={() => setMode('gerador')}
-              className={cn(
-                "px-4 py-2 rounded-md flex items-center gap-2 text-sm font-medium transition-all",
-                mode === 'gerador' ? "bg-green-600 text-white shadow-md" : "text-slate-400 hover:text-white"
-              )}
-            >
-              <Printer size={16} /> Emitir Carteirinha
-            </button>
           </div>
         </div>
       </header>
 
       {/* CONTEÚDO */}
-      <main className="flex-1 bg-slate-100 p-6">
+      <main className="flex-1 p-6">
         <div className="max-w-7xl mx-auto">
           {mode === 'admin' ? (
-            <AdminModule template={template} setTemplate={setTemplate} switchToGenerator={() => setMode('gerador')} />
+            <AdminModule 
+              template={currentTemplate}
+              setTemplate={setCurrentTemplate}
+              savedTemplates={savedTemplates}
+              onSaveTemplate={saveTemplate}
+              onLoadTemplate={loadTemplate}
+              onDeleteTemplate={deleteTemplate}
+              switchToGenerator={() => setMode('gerador')} 
+            />
           ) : (
-            <GeneratorModule template={template} backToAdmin={() => setMode('admin')} />
+            <GeneratorModule 
+              template={currentTemplate}
+              backToAdmin={() => setMode('admin')} 
+            />
           )}
         </div>
       </main>
@@ -99,11 +344,27 @@ export default function App() {
 }
 
 // --- MÓDULO ADMIN (CONFIGURAÇÃO) ---
-function AdminModule({ template, setTemplate, switchToGenerator }: { template: TemplateData, setTemplate: any, switchToGenerator: () => void }) {
+function AdminModule({ 
+  template, 
+  setTemplate, 
+  savedTemplates,
+  onSaveTemplate,
+  onLoadTemplate,
+  onDeleteTemplate,
+  switchToGenerator 
+}: { 
+  template: TemplateData;
+  setTemplate: any;
+  savedTemplates: SavedTemplate[];
+  onSaveTemplate: () => SavedTemplate;
+  onLoadTemplate: (template: SavedTemplate) => void;
+  onDeleteTemplate: (id: string) => void;
+  switchToGenerator: () => void;
+}) {
   const [activeFace, setActiveFace] = useState<FaceType>('frente');
   const [selectedId, selectShape] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
   
-  // Handles
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>, face: FaceType) => {
     if (e.target.files?.[0]) {
       const url = URL.createObjectURL(e.target.files[0]);
@@ -115,9 +376,14 @@ function AdminModule({ template, setTemplate, switchToGenerator }: { template: T
   };
 
   const addField = (type: FieldType) => {
-    const defaultName = type === 'texto' ? 'Novo Campo' : 'Foto 3x4';
-    const name = prompt("Nome do campo (Ex: NOME, CPF, FOTO):", defaultName);
-    if (!name) return;
+    const defaultName = type === 'texto' ? 'Novo Campo' : 'FOTO';
+    let name: string = defaultName;
+    
+    if (type === 'texto') {
+      const promptResult = prompt("Nome do campo (Ex: NOME, CPF, RG):", defaultName);
+      if (!promptResult) return;
+      name = promptResult;
+    }
 
     const newField: Field = {
       id: Math.random().toString(36).substr(2, 9),
@@ -127,7 +393,9 @@ function AdminModule({ template, setTemplate, switchToGenerator }: { template: T
       y: 50,
       w: type === 'foto' ? 100 : 150,
       h: type === 'foto' ? 130 : 20,
-      fontSize: 16
+      fontSize: 16,
+      fontFamily: 'Arial',
+      color: '#000000'
     };
 
     setTemplate((prev: TemplateData) => ({
@@ -156,84 +424,137 @@ function AdminModule({ template, setTemplate, switchToGenerator }: { template: T
   const currentBg = activeFace === 'frente' ? template.frenteImg : template.versoImg;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-8rem)]">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-10rem)]">
       {/* SIDEBAR DE CONFIGURAÇÃO */}
-      <aside className="lg:col-span-3 bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col gap-6 overflow-y-auto">
+      <aside className="lg:col-span-3 bg-white rounded-xl shadow-md border border-gray-200 p-5 flex flex-col gap-6 overflow-y-auto">
+        {/* Templates Salvos */}
         <div>
-          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-            <Settings className="text-blue-600" size={20} /> Configurar Bases
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <FolderOpen className="text-green-700" size={20} /> Templates
+            </h2>
+            <button 
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="text-green-700 hover:text-green-800"
+            >
+              <ChevronRight size={16} className={cn("transition-transform", showTemplates && "rotate-90")} />
+            </button>
+          </div>
+          
+          {showTemplates && (
+            <div className="space-y-2 mb-4">
+              {savedTemplates.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">Nenhum template salvo</p>
+              ) : (
+                savedTemplates.map(t => (
+                  <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    <button 
+                      onClick={() => onLoadTemplate(t)}
+                      className="flex-1 text-left text-sm font-medium hover:text-green-700"
+                    >
+                      {t.name}
+                    </button>
+                    <button 
+                      onClick={() => onDeleteTemplate(t.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+          
+          <input
+            type="text"
+            value={template.name}
+            onChange={(e) => setTemplate({...template, name: e.target.value})}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            placeholder="Nome do template"
+          />
+        </div>
+
+        <hr className="border-gray-200" />
+
+        <div>
+          <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Settings className="text-green-700" size={20} /> Configurar Bases
           </h2>
           
           <div className="space-y-4">
-            {/* Upload Frente */}
-            <div className={cn("border-2 border-dashed rounded-lg p-4 transition-colors", activeFace === 'frente' ? "border-blue-500 bg-blue-50" : "border-slate-300")}>
+            <div className={cn("border-2 border-dashed rounded-lg p-4 transition-all", activeFace === 'frente' ? "border-green-500 bg-green-50" : "border-gray-300")}>
               <div className="flex justify-between items-center mb-2">
                 <span className="font-semibold text-sm">Base Frente</span>
-                {template.frenteImg && <CheckCircle2 size={16} className="text-green-500" />}
+                {template.frenteImg && <CheckCircle2 size={16} className="text-green-600" />}
               </div>
               <input type="file" accept="image/*" onChange={(e) => handleUpload(e, 'frente')} className="text-xs w-full" />
             </div>
 
-            {/* Upload Verso */}
-            <div className={cn("border-2 border-dashed rounded-lg p-4 transition-colors", activeFace === 'verso' ? "border-blue-500 bg-blue-50" : "border-slate-300")}>
+            <div className={cn("border-2 border-dashed rounded-lg p-4 transition-all", activeFace === 'verso' ? "border-green-500 bg-green-50" : "border-gray-300")}>
               <div className="flex justify-between items-center mb-2">
                 <span className="font-semibold text-sm">Base Verso</span>
-                {template.versoImg && <CheckCircle2 size={16} className="text-green-500" />}
+                {template.versoImg && <CheckCircle2 size={16} className="text-green-600" />}
               </div>
               <input type="file" accept="image/*" onChange={(e) => handleUpload(e, 'verso')} className="text-xs w-full" />
             </div>
           </div>
         </div>
 
-        <hr />
+        <hr className="border-gray-200" />
 
         <div>
-          <h2 className="text-lg font-bold text-slate-800 mb-4">Adicionar Campos</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-4">Adicionar Campos</h2>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => addField('texto')} className="flex flex-col items-center justify-center p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-              <Type size={20} className="mb-1 text-slate-600" />
+            <button onClick={() => addField('texto')} className="flex flex-col items-center justify-center p-3 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all">
+              <Type size={20} className="mb-1 text-gray-600" />
               <span className="text-xs font-medium">Texto</span>
             </button>
-            <button onClick={() => addField('foto')} className="flex flex-col items-center justify-center p-3 border rounded-lg hover:bg-slate-50 transition-colors">
-              <ImageIcon size={20} className="mb-1 text-slate-600" />
+            <button onClick={() => addField('foto')} className="flex flex-col items-center justify-center p-3 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all">
+              <ImageIcon size={20} className="mb-1 text-gray-600" />
               <span className="text-xs font-medium">Foto</span>
             </button>
           </div>
         </div>
 
         <div className="flex-1">
-           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Lista de Campos ({activeFace})</h3>
-           <div className="space-y-2">
-             {currentCampos.length === 0 && <p className="text-sm text-slate-400 italic">Nenhum campo.</p>}
-             {currentCampos.map(f => (
-               <div key={f.id} onClick={() => selectShape(f.id)} className={cn("p-2 rounded border flex justify-between items-center cursor-pointer", selectedId === f.id ? "border-blue-500 bg-blue-50" : "border-slate-200")}>
-                 <div className="flex items-center gap-2 overflow-hidden">
-                   {f.type === 'texto' ? <Type size={14} /> : <ImageIcon size={14} className="text-purple-600"/>}
-                   <span className="text-sm truncate font-medium">{f.name}</span>
-                 </div>
-                 <button onClick={(e) => { e.stopPropagation(); removeField(f.id); }} className="text-slate-400 hover:text-red-500"><Trash2 size={14}/></button>
-               </div>
-             ))}
-           </div>
+          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Lista de Campos ({activeFace})</h3>
+          <div className="space-y-2">
+            {currentCampos.length === 0 && <p className="text-sm text-gray-400 italic">Nenhum campo.</p>}
+            {currentCampos.map(f => (
+              <div key={f.id} onClick={() => selectShape(f.id)} className={cn("p-2 rounded-lg border flex justify-between items-center cursor-pointer transition-all", selectedId === f.id ? "border-green-500 bg-green-50 shadow-sm" : "border-gray-200 hover:border-gray-300")}>
+                <div className="flex items-center gap-2 overflow-hidden">
+                  {f.type === 'texto' ? <Type size={14} /> : <ImageIcon size={14} className="text-purple-600"/>}
+                  <span className="text-sm truncate font-medium">{f.name}</span>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); removeField(f.id); }} className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={14}/></button>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <button onClick={switchToGenerator} className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-lg transition-transform hover:scale-[1.02]">
-          <Save size={18} /> Salvar e Ir para Gerador
-        </button>
+        <div className="space-y-2">
+          <button onClick={() => onSaveTemplate()} className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
+            <Save size={18} /> Salvar Template
+          </button>
+          <button onClick={switchToGenerator} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
+            <Printer size={18} /> Ir para Emissão
+          </button>
+        </div>
       </aside>
 
       {/* ÁREA DE CANVAS ADMIN */}
-      <div className="lg:col-span-9 bg-slate-200 rounded-xl border border-slate-300 relative flex flex-col overflow-hidden">
-        <div className="bg-white p-2 flex justify-center gap-4 shadow-sm z-10">
-          <button onClick={() => setActiveFace('frente')} className={cn("px-4 py-1 rounded-full text-sm font-medium", activeFace === 'frente' ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600")}>Frente</button>
-          <button onClick={() => setActiveFace('verso')} className={cn("px-4 py-1 rounded-full text-sm font-medium", activeFace === 'verso' ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600")}>Verso</button>
+      <div className="lg:col-span-9 bg-gray-100 rounded-xl border border-gray-300 relative flex flex-col overflow-hidden">
+        <div className="bg-white p-3 flex justify-center gap-4 shadow-sm z-10">
+          <button onClick={() => setActiveFace('frente')} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", activeFace === 'frente' ? "bg-green-700 text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>Frente</button>
+          <button onClick={() => setActiveFace('verso')} className={cn("px-6 py-2 rounded-full text-sm font-medium transition-all", activeFace === 'verso' ? "bg-green-700 text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>Verso</button>
         </div>
 
-        <div className="flex-1 overflow-auto flex items-center justify-center p-8 bg-slate-200/50" onClick={(e) => { if(e.target === e.currentTarget) selectShape(null); }}>
+        <div className="flex-1 overflow-auto flex items-center justify-center p-8 bg-gray-50" onClick={(e) => { if(e.target === e.currentTarget) selectShape(null); }}>
           {!currentBg ? (
-            <div className="text-center text-slate-400">
+            <div className="text-center text-gray-400">
               <Upload size={48} className="mx-auto mb-2 opacity-50" />
-              <p>Faça upload da imagem da {activeFace} para começar</p>
+              <p className="text-lg">Faça upload da imagem da {activeFace} para começar</p>
             </div>
           ) : (
             <CanvasEditor 
@@ -263,10 +584,10 @@ const CanvasEditor = ({ bgSrc, fields, selectedId, onSelect, onChange }: any) =>
     }
   }, [selectedId]);
 
-  if (!img) return <div>Carregando...</div>;
+  if (!img) return <div className="text-gray-500">Carregando...</div>;
 
   return (
-    <div className="shadow-2xl border-4 border-white bg-white">
+    <div className="shadow-2xl border-4 border-white bg-white rounded-lg">
       <Stage width={img.width} height={img.height} onMouseDown={(e) => {
         if (e.target === e.target.getStage()) onSelect(null);
       }}>
@@ -282,7 +603,8 @@ const CanvasEditor = ({ bgSrc, fields, selectedId, onSelect, onChange }: any) =>
                     x={field.x} y={field.y}
                     text={field.name}
                     fontSize={field.fontSize}
-                    fill="red"
+                    fontFamily={field.fontFamily}
+                    fill={field.color}
                     draggable
                     onClick={() => onSelect(field.id)}
                     onDragEnd={(e) => onChange(field.id, { x: e.target.x(), y: e.target.y() })}
@@ -291,13 +613,14 @@ const CanvasEditor = ({ bgSrc, fields, selectedId, onSelect, onChange }: any) =>
                   <Rect
                     ref={isSelected ? shapeRef : null}
                     x={field.x} y={field.y} width={field.w} height={field.h}
-                    fill="rgba(0, 160, 255, 0.3)"
-                    stroke="blue"
-                    strokeWidth={1}
+                    fill="rgba(34, 197, 94, 0.2)"
+                    stroke="#22c55e"
+                    strokeWidth={2}
+                    dash={[5, 5]}
                     draggable
                     onClick={() => onSelect(field.id)}
                     onDragEnd={(e) => onChange(field.id, { x: e.target.x(), y: e.target.y() })}
-                    onTransformEnd={(e) => {
+                    onTransformEnd={() => {
                       const node = shapeRef.current;
                       const scaleX = node.scaleX();
                       const scaleY = node.scaleY();
@@ -320,10 +643,10 @@ const CanvasEditor = ({ bgSrc, fields, selectedId, onSelect, onChange }: any) =>
 function GeneratorModule({ template, backToAdmin }: { template: TemplateData, backToAdmin: () => void }) {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [userPhotos, setUserPhotos] = useState<Record<string, string>>({});
+  const [editingPhoto, setEditingPhoto] = useState<{ fieldName: string; url: string } | null>(null);
   const stageFrontRef = useRef<any>(null);
   const stageBackRef = useRef<any>(null);
 
-  // Campos únicos
   const allFields = [...template.frenteCampos, ...template.versoCampos];
   const uniqueTextFields = Array.from(new Set(allFields.filter(f => f.type === 'texto').map(f => f.name)));
   const uniquePhotoFields = Array.from(new Set(allFields.filter(f => f.type === 'foto').map(f => f.name)));
@@ -331,13 +654,16 @@ function GeneratorModule({ template, backToAdmin }: { template: TemplateData, ba
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
     if (e.target.files?.[0]) {
       const url = URL.createObjectURL(e.target.files[0]);
-      setUserPhotos(prev => ({ ...prev, [fieldName]: url }));
+      setEditingPhoto({ fieldName, url });
     }
   };
 
-  // --- NOVA FUNÇÃO DE DOWNLOAD PNG ---
+  const handlePhotoEdit = (fieldName: string, url: string) => {
+    setUserPhotos(prev => ({ ...prev, [fieldName]: url }));
+    setEditingPhoto(null);
+  };
+
   const downloadPNGs = () => {
-    // Função auxiliar para baixar uma URI
     const downloadURI = (uri: string, name: string) => {
       const link = document.createElement('a');
       link.download = name;
@@ -348,128 +674,157 @@ function GeneratorModule({ template, backToAdmin }: { template: TemplateData, ba
     };
 
     if (stageFrontRef.current) {
-        // pixelRatio: 3 garante alta resolução (300 DPI aprox.)
-        const data = stageFrontRef.current.toDataURL({ pixelRatio: 3 });
-        downloadURI(data, 'carteirinha_frente.png');
+      const data = stageFrontRef.current.toDataURL({ pixelRatio: 3 });
+      downloadURI(data, 'carteirinha_frente.png');
     }
 
     if (stageBackRef.current) {
-        // Pequeno delay para garantir que o navegador aceite o segundo download
-        setTimeout(() => {
-            const data = stageBackRef.current.toDataURL({ pixelRatio: 3 });
-            downloadURI(data, 'carteirinha_verso.png');
-        }, 500);
+      setTimeout(() => {
+        const data = stageBackRef.current.toDataURL({ pixelRatio: 3 });
+        downloadURI(data, 'carteirinha_verso.png');
+      }, 500);
     }
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* FORMULÁRIO */}
-      <div className="lg:col-span-4 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-slate-800">Preencher Dados</h2>
-            <button onClick={backToAdmin} className="text-xs text-blue-600 underline">Voltar para Admin</button>
-        </div>
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* FORMULÁRIO */}
+        <div className="lg:col-span-4 bg-white rounded-xl shadow-md border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-800">Preencher Dados</h2>
+            <button onClick={backToAdmin} className="text-sm text-green-700 hover:text-green-800 font-medium">← Voltar</button>
+          </div>
 
-        <div className="space-y-4">
+          <div className="space-y-4">
             {uniqueTextFields.map(name => (
-                <div key={name}>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">{name}</label>
-                    <input 
-                        type="text" 
-                        className="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={formData[name] || ''}
-                        onChange={(e) => setFormData({...formData, [name]: e.target.value})}
-                    />
-                </div>
+              <div key={name}>
+                <label className="block text-sm font-bold text-gray-700 mb-1">{name}</label>
+                <input 
+                  type="text" 
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  placeholder={`Digite ${name.toLowerCase()}`}
+                  value={formData[name] || ''}
+                  onChange={(e) => setFormData({...formData, [name]: e.target.value})}
+                />
+              </div>
             ))}
 
             {uniquePhotoFields.map(name => (
-                <div key={name} className="p-3 bg-slate-50 rounded border border-slate-200">
-                    <label className="block text-xs font-bold text-slate-500 mb-2 flex items-center gap-2">
-                        <ImageIcon size={14} /> {name}
-                    </label>
-                    <input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => handlePhotoUpload(e, name)}
-                        className="text-xs w-full"
-                    />
-                    {userPhotos[name] && <img src={userPhotos[name]} className="mt-2 h-20 w-auto rounded border" />}
-                </div>
+              <div key={name} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <ImageIcon size={16} /> {name}
+                </label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => handlePhotoUpload(e, name)}
+                  className="text-sm w-full mb-3"
+                />
+                {userPhotos[name] && (
+                  <div className="relative">
+                    <img src={userPhotos[name]} className="w-full h-32 object-cover rounded-lg border" />
+                    <button
+                      onClick={() => setEditingPhoto({ fieldName: name, url: userPhotos[name] })}
+                      className="absolute top-2 right-2 bg-green-700 text-white p-2 rounded-lg hover:bg-green-800 transition-colors"
+                      title="Editar foto"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
+          </div>
+
+          <button onClick={downloadPNGs} className="w-full mt-8 bg-green-700 hover:bg-green-800 text-white py-4 rounded-lg font-bold shadow-lg flex justify-center items-center gap-2 transition-all hover:shadow-xl">
+            <Download size={20} /> Baixar Carteirinha
+          </button>
         </div>
 
-        <button onClick={downloadPNGs} className="w-full mt-8 bg-blue-900 hover:bg-blue-800 text-white py-4 rounded-lg font-bold shadow-lg flex justify-center items-center gap-2 transition-all hover:scale-[1.02]">
-            <Download size={20} /> Baixar Imagens (PNG)
-        </button>
+        {/* PREVIEW */}
+        <div className="lg:col-span-8 space-y-8 overflow-y-auto max-h-[calc(100vh-10rem)]">
+          <div className="text-center mb-6">
+            <h3 className="font-bold text-gray-600 uppercase tracking-wider text-sm">Preview em Tempo Real</h3>
+          </div>
+
+          {template.frenteImg && (
+            <div className="flex justify-center">
+              <div className="shadow-2xl border-4 border-white bg-white rounded-lg">
+                <PreviewStage 
+                  refStage={stageFrontRef}
+                  bg={template.frenteImg} 
+                  fields={template.frenteCampos} 
+                  data={formData} 
+                  photos={userPhotos} 
+                />
+              </div>
+            </div>
+          )}
+
+          {template.versoImg && (
+            <div className="flex justify-center">
+              <div className="shadow-2xl border-4 border-white bg-white rounded-lg">
+                <PreviewStage 
+                  refStage={stageBackRef}
+                  bg={template.versoImg} 
+                  fields={template.versoCampos} 
+                  data={formData} 
+                  photos={userPhotos} 
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* PREVIEW */}
-      <div className="lg:col-span-8 space-y-8 overflow-y-auto max-h-[calc(100vh-8rem)]">
-         <div className="text-center mb-4">
-             <h3 className="font-bold text-slate-500 uppercase tracking-widest text-sm">Preview em Tempo Real</h3>
-         </div>
-
-         {/* Preview Frente */}
-         {template.frenteImg && (
-             <div className="flex justify-center">
-                 <div className="shadow-2xl border-4 border-white bg-white">
-                     <PreviewStage 
-                        refStage={stageFrontRef}
-                        bg={template.frenteImg} 
-                        fields={template.frenteCampos} 
-                        data={formData} 
-                        photos={userPhotos} 
-                    />
-                 </div>
-             </div>
-         )}
-
-         {/* Preview Verso */}
-         {template.versoImg && (
-             <div className="flex justify-center">
-                 <div className="shadow-2xl border-4 border-white bg-white">
-                     <PreviewStage 
-                        refStage={stageBackRef}
-                        bg={template.versoImg} 
-                        fields={template.versoCampos} 
-                        data={formData} 
-                        photos={userPhotos} 
-                    />
-                 </div>
-             </div>
-         )}
-      </div>
-    </div>
+      {/* Modal de Editor de Foto */}
+      {editingPhoto && (
+        <PhotoEditor
+          imageUrl={editingPhoto.url}
+          onSave={(url) => handlePhotoEdit(editingPhoto.fieldName, url)}
+          onClose={() => setEditingPhoto(null)}
+        />
+      )}
+    </>
   );
 }
 
 // --- RENDERIZADOR DO PREVIEW ---
 const PreviewStage = ({ refStage, bg, fields, data, photos }: any) => {
-    const [img] = useImage(bg);
-    if (!img) return null;
+  const [img] = useImage(bg);
+  if (!img) return null;
 
-    return (
-        <Stage width={img.width} height={img.height} ref={refStage}>
-            <Layer>
-                <KonvaImage image={img} />
-                {fields.map((f: Field) => {
-                    if (f.type === 'texto') {
-                        return <Text key={f.id} x={f.x} y={f.y} text={data[f.name] || f.name} fontSize={f.fontSize} fontFamily="Arial" fill="black" />;
-                    } else if (f.type === 'foto') {
-                        return <PhotoRender key={f.id} src={photos[f.name]} x={f.x} y={f.y} w={f.w} h={f.h} />;
-                    }
-                    return null;
-                })}
-            </Layer>
-        </Stage>
-    );
+  return (
+    <Stage width={img.width} height={img.height} ref={refStage}>
+      <Layer>
+        <KonvaImage image={img} />
+        {fields.map((f: Field) => {
+          if (f.type === 'texto') {
+            return (
+              <Text 
+                key={f.id} 
+                x={f.x} 
+                y={f.y} 
+                text={data[f.name] || f.name} 
+                fontSize={f.fontSize || 16}
+                fontFamily={f.fontFamily || 'Arial'}
+                fill={f.color || '#000000'} 
+              />
+            );
+          } else if (f.type === 'foto') {
+            return <PhotoRender key={f.id} src={photos[f.name]} x={f.x} y={f.y} w={f.w} h={f.h} />;
+          }
+          return null;
+        })}
+      </Layer>
+    </Stage>
+  );
 };
 
-// Auxiliar Foto
+// Componente de Foto
 const PhotoRender = ({ src, x, y, w, h }: any) => {
-    const [img] = useImage(src || '');
-    if (!src || !img) return <Rect x={x} y={y} width={w} height={h} fill="#eee" stroke="#ccc" />;
-    return <KonvaImage image={img} x={x} y={y} width={w} height={h} />;
+  const [img] = useImage(src || '');
+  if (!src || !img) return <Rect x={x} y={y} width={w} height={h} fill="#f3f4f6" stroke="#d1d5db" />;
+  return <KonvaImage image={img} x={x} y={y} width={w} height={h} />;
 };
