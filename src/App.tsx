@@ -83,12 +83,7 @@ const PhotoEditor = ({
     pixelCrop: any,
     rotation = 0
   ): Promise<string> => {
-    console.log('getCroppedImg - pixelCrop:', pixelCrop);
-    console.log('getCroppedImg - rotation:', rotation);
-    
     const image = await createImage(imageSrc);
-    console.log('getCroppedImg - image dimensions:', image.width, 'x', image.height);
-    
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
@@ -99,7 +94,6 @@ const PhotoEditor = ({
     // Configurar o tamanho do canvas para o tamanho do crop
     canvas.width = pixelCrop.width;
     canvas.height = pixelCrop.height;
-    console.log('getCroppedImg - canvas dimensions:', canvas.width, 'x', canvas.height);
 
     // Limpar o canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -130,7 +124,6 @@ const PhotoEditor = ({
     }
 
     const result = canvas.toDataURL('image/jpeg', 0.9);
-    console.log('getCroppedImg - result length:', result.length);
     return result;
   };
 
@@ -164,11 +157,7 @@ const PhotoEditor = ({
               rotation={rotation}
               aspect={3/4}
               onCropChange={setCrop}
-              onCropComplete={(croppedArea, croppedAreaPixels) => {
-                console.log('onCropComplete - croppedArea:', croppedArea);
-                console.log('onCropComplete - croppedAreaPixels:', croppedAreaPixels);
-                setCroppedAreaPixels(croppedAreaPixels);
-              }}
+              onCropComplete={(_, croppedAreaPixels) => setCroppedAreaPixels(croppedAreaPixels)}
               onZoomChange={setZoom}
               onRotationChange={setRotation}
               objectFit="contain"
