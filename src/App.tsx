@@ -369,6 +369,49 @@ export default function App() {
     localStorage.setItem('oab-templates', JSON.stringify(updated));
   };
 
+  // Funções de Exportar/Importar Dados
+  const exportarDados = () => {
+    const dados = {
+      templates: JSON.parse(localStorage.getItem('oab-templates') || '[]'),
+      carteirinhas: JSON.parse(localStorage.getItem('oab-carteirinhas') || '[]'),
+      exportadoEm: new Date().toISOString(),
+      versao: '1.0'
+    };
+    
+    const blob = new Blob([JSON.stringify(dados, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup-oab-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importarDados = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const dados = JSON.parse(e.target?.result as string);
+        
+        if (dados.templates && Array.isArray(dados.templates)) {
+          localStorage.setItem('oab-templates', JSON.stringify(dados.templates));
+        }
+        
+        if (dados.carteirinhas && Array.isArray(dados.carteirinhas)) {
+          localStorage.setItem('oab-carteirinhas', JSON.stringify(dados.carteirinhas));
+        }
+        
+        alert('Dados importados com sucesso!\n\nTemplates: ' + dados.templates?.length || 0 + '\nCarteirinhas: ' + dados.carteirinhas?.length || 0);
+        window.location.reload();
+      } catch (error) {
+        alert('Erro ao importar arquivo. Verifique se é um arquivo JSON válido.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-gray-50">
       {/* HEADER OAB-SP STYLE */}
@@ -410,6 +453,26 @@ export default function App() {
               >
                 <Printer size={16} /> Emitir Carteirinha
               </button>
+              <button 
+                onClick={exportarDados}
+                className="px-3 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all text-white hover:bg-green-600"
+                title="Exportar todos os dados (templates + carteirinhas)"
+              >
+                <Download size={16} /> Backup
+              </button>
+              <label className="px-3 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all text-white hover:bg-green-600 cursor-pointer">
+                <Upload size={16} /> Importar
+                <input 
+                  type="file" 
+                  accept=".json"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      importarDados(e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
             </div>
           </div>
         </div>
@@ -423,8 +486,8 @@ export default function App() {
               template={currentTemplate}
               setTemplate={setCurrentTemplate}
               savedTemplates={savedTemplates}
-              onSaveTemplate={saveTemplate}
               onLoadTemplate={loadTemplate}
+              onDeleteTemplate={deleteTemplate}
               switchToGenerator={() => setMode('gerador')} 
             />
           ) : (
@@ -639,8 +702,10 @@ function AdminModule({
                     };
                     
                     const updated = [...savedTemplates, templateToSave];
-                    setSavedTemplates(updated);
+                    // Salvar no localStorage e atualizar estado global
                     localStorage.setItem('oab-templates', JSON.stringify(updated));
+                    // Forçar reload da página para atualizar templates
+                    window.location.reload();
                   }
                 }}
                 className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
