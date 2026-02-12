@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Printer, Edit3, X, Save, Trash2 } from 'lucide-react';
+import { Settings, Printer, Save, Trash2, Plus } from 'lucide-react';
 import { supabase, salvarTemplateSupabase, carregarTemplatesSupabase } from './lib/supabase';
 
 // --- TIPOS ---
@@ -195,11 +195,59 @@ export default function App() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Base Frente</label>
-                        <input type="file" accept="image/*" className="text-xs w-full" />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                setCurrentTemplate({
+                                  ...currentTemplate,
+                                  frenteImg: event.target?.result as string
+                                });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="text-xs w-full" 
+                        />
+                        {currentTemplate.frenteImg && (
+                          <img 
+                            src={currentTemplate.frenteImg} 
+                            alt="Preview Frente" 
+                            className="mt-2 w-full h-32 object-cover rounded border"
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Base Verso</label>
-                        <input type="file" accept="image/*" className="text-xs w-full" />
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                setCurrentTemplate({
+                                  ...currentTemplate,
+                                  versoImg: event.target?.result as string
+                                });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="text-xs w-full" 
+                        />
+                        {currentTemplate.versoImg && (
+                          <img 
+                            src={currentTemplate.versoImg} 
+                            alt="Preview Verso" 
+                            className="mt-2 w-full h-32 object-cover rounded border"
+                          />
+                        )}
                       </div>
                     </div>
                     
