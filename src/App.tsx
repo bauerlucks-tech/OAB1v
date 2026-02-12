@@ -9,7 +9,6 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import Cropper from 'react-easy-crop';
-import { API_CONFIG } from './config';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -39,13 +38,26 @@ interface TemplateData {
   versoImg: string | null;
   frenteCampos: Field[];
   versoCampos: Field[];
-  createdAt: string;
 }
 
 interface SavedTemplate {
   id: string;
   name: string;
   data: TemplateData;
+  createdAt: string;
+}
+
+interface CarteirinhaRecord {
+  id: string;
+  nome: string;
+  templateId: string;
+  templateName: string;
+  dados: Record<string, string>;
+  fotos: Record<string, string>;
+  frenteUrl: string;
+  versoUrl: string;
+  createdAt: string;
+  emitidaEm: string;
 }
 
 // --- COMPONENTE DE EDITOR DE FOTO ---
@@ -82,97 +94,59 @@ const PhotoEditor = ({
   const removeBackgroundFromImage = async (imageUrl: string): Promise<string> => {
     setIsRemovingBackground(true);
     try {
-      // Usar API remove.bg para remoção profissional de fundo
-      const formData = new FormData();
-      
-      // Converter image URL para blob
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      formData.append('image_file', blob, 'photo.jpg');
-      formData.append('size', 'auto');
-      
-      // Chamar API remove.bg (você precisará de uma API key)
-      const apiKey = API_CONFIG.REMOVE_BG_API_KEY;
-      
-      if (apiKey === 'YOUR_REMOVE_BG_API_KEY') {
-        // Fallback para simulação se não tiver API key
-        const result = await simulateBackgroundRemoval(imageUrl);
-        setIsRemovingBackground(false);
-        return result;
+      // Usar algoritmo client-side para remoção de fundo
+      const image = await createImage(imageUrl);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) return imageUrl;
+
+      canvas.width = image.width;
+      canvas.height = image.height;
+
+      // Desenhar imagem original
+      ctx.drawImage(image, 0, 0);
+
+      // Aplicar algoritmo de segmentação simples baseado em cor
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Algoritmo melhorado para detecção de pele e remoção de fundo
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        // Calcular se é pele (baseado em tons de pele humanos)
+        const isSkinColor = (
+          r > 95 && g > 40 && b > 20 &&
+          r > g && r > b &&
+          r - g > 15 && g - b > 15 &&
+          r < 220 && g < 200 && b < 180
+        );
+        
+        // Calcular luminosidade
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        
+        // Se não for pele e for claro, tornar transparente
+        if (!isSkinColor && brightness > 160) {
+          data[i + 3] = 0; // Alpha channel (transparente)
+        }
+        
+        // Remover tons muito claros (branco, cinza claro)
+        if (r > 200 && g > 200 && b > 200) {
+          data[i + 3] = 0;
+        }
       }
-      
-      const removeBgResponse = await fetch(API_CONFIG.REMOVE_BG_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'X-Api-Key': apiKey,
-        },
-        body: formData,
-      });
-      
-      if (!removeBgResponse.ok) {
-        throw new Error('Erro na API de remoção de fundo');
-      }
-      
-      const resultBlob = await removeBgResponse.blob();
-      setIsRemovingBackground(false);
-      return URL.createObjectURL(resultBlob);
+
+      ctx.putImageData(imageData, 0, 0);
+      return canvas.toDataURL('image/png');
       
     } catch (error) {
       console.error('Erro na remoção de fundo:', error);
-      // Fallback para simulação
-      const result = await simulateBackgroundRemoval(imageUrl);
       setIsRemovingBackground(false);
-      return result;
+      return imageUrl;
     }
-  };
-
-  const simulateBackgroundRemoval = async (imageUrl: string): Promise<string> => {
-    // Simulação melhorada de remoção de fundo
-    const image = await createImage(imageUrl);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) return imageUrl;
-
-    canvas.width = image.width;
-    canvas.height = image.height;
-
-    // Desenhar imagem original
-    ctx.drawImage(image, 0, 0);
-
-    // Aplicar algoritmo mais avançado para remover fundo
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-
-    // Algoritmo melhorado para detectar e remover fundo
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      
-      // Calcular luminosidade
-      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      
-      // Detecção de pele (manter pessoas)
-      const isSkinColor = (
-        r > 95 && g > 40 && b > 20 &&
-        r > g && r > b &&
-        Math.abs(r - g) > 15 && Math.abs(r - b) > 15
-      );
-      
-      // Se não for pele e for claro, tornar transparente
-      if (!isSkinColor && brightness > 180) {
-        data[i + 3] = 0; // Alpha channel (transparente)
-      }
-      
-      // Remover tons muito claros (branco, cinza claro)
-      if (r > 220 && g > 220 && b > 220) {
-        data[i + 3] = 0;
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-    return canvas.toDataURL('image/png');
   };
 
   const getCroppedImg = async (
@@ -374,8 +348,7 @@ export default function App() {
     frenteImg: null,
     versoImg: null,
     frenteCampos: [],
-    versoCampos: [],
-    createdAt: new Date().toISOString()
+    versoCampos: []
   });
 
   // Carregar templates salvos do localStorage
@@ -385,19 +358,6 @@ export default function App() {
       setSavedTemplates(JSON.parse(stored));
     }
   }, []);
-
-  const saveTemplate = () => {
-    const templateToSave: SavedTemplate = {
-      id: Date.now().toString(),
-      name: currentTemplate.name,
-      data: { ...currentTemplate }
-    };
-    
-    const updated = [...savedTemplates, templateToSave];
-    setSavedTemplates(updated);
-    localStorage.setItem('oab-templates', JSON.stringify(updated));
-    return templateToSave;
-  };
 
   const loadTemplate = (template: SavedTemplate) => {
     setCurrentTemplate(template.data);
@@ -463,7 +423,6 @@ export default function App() {
               template={currentTemplate}
               setTemplate={setCurrentTemplate}
               savedTemplates={savedTemplates}
-              onSaveTemplate={saveTemplate}
               onLoadTemplate={loadTemplate}
               onDeleteTemplate={deleteTemplate}
               switchToGenerator={() => setMode('gerador')} 
@@ -484,7 +443,6 @@ function AdminModule({
   template, 
   setTemplate, 
   savedTemplates,
-  onSaveTemplate,
   onLoadTemplate,
   onDeleteTemplate,
   switchToGenerator 
@@ -492,7 +450,6 @@ function AdminModule({
   template: TemplateData;
   setTemplate: any;
   savedTemplates: SavedTemplate[];
-  onSaveTemplate: () => SavedTemplate;
   onLoadTemplate: (template: SavedTemplate) => void;
   onDeleteTemplate: (id: string) => void;
   switchToGenerator: () => void;
@@ -670,9 +627,9 @@ function AdminModule({
         </div>
 
         <div className="space-y-2">
-          <button onClick={() => onSaveTemplate()} className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
-            <Save size={18} /> Salvar Template
-          </button>
+          <button onClick={() => {}} className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
+              <Save size={16} /> Salvar Template
+            </button>
           <button onClick={switchToGenerator} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
             <Printer size={18} /> Ir para Emissão
           </button>
@@ -782,10 +739,13 @@ function GeneratorModule({ backToAdmin }: { backToAdmin: () => void }) {
   const [editingPhoto, setEditingPhoto] = useState<{ fieldName: string; url: string } | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateData | null>(null);
   const [showTemplateSelection, setShowTemplateSelection] = useState(true);
+  const [showHistorico, setShowHistorico] = useState(false);
+  const [carteirinhasSalvas, setCarteirinhasSalvas] = useState<CarteirinhaRecord[]>([]);
+  const [buscaHistorico, setBuscaHistorico] = useState('');
   const stageFrontRef = useRef<any>(null);
   const stageBackRef = useRef<any>(null);
 
-  // Carregar templates salvos
+  // Carregar templates salvos e histórico de carteirinhas
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   
   useEffect(() => {
@@ -793,12 +753,82 @@ function GeneratorModule({ backToAdmin }: { backToAdmin: () => void }) {
     if (stored) {
       setSavedTemplates(JSON.parse(stored));
     }
+    
+    const historico = localStorage.getItem('oab-carteirinhas');
+    if (historico) {
+      setCarteirinhasSalvas(JSON.parse(historico));
+    }
   }, []);
 
   const selectTemplate = (templateData: TemplateData) => {
     setSelectedTemplate(templateData);
     setShowTemplateSelection(false);
   };
+
+  const saveCarteirinha = () => {
+    if (!selectedTemplate || !formData.NOME) {
+      alert('Preencha o nome e selecione um template!');
+      return;
+    }
+
+    // Gerar URLs das imagens
+    let frenteUrl = '';
+    let versoUrl = '';
+
+    if (stageFrontRef.current) {
+      frenteUrl = stageFrontRef.current.toDataURL({ pixelRatio: 3 });
+    }
+
+    if (stageBackRef.current) {
+      versoUrl = stageBackRef.current.toDataURL({ pixelRatio: 3 });
+    }
+
+    const novaCarteirinha: CarteirinhaRecord = {
+      id: Math.random().toString(36).substr(2, 9),
+      nome: formData.NOME || 'Sem Nome',
+      templateId: selectedTemplate.id,
+      templateName: selectedTemplate.name,
+      dados: formData,
+      fotos: userPhotos,
+      frenteUrl,
+      versoUrl,
+      createdAt: new Date().toISOString(),
+      emitidaEm: new Date().toLocaleString('pt-BR')
+    };
+
+    const atualizadas = [...carteirinhasSalvas, novaCarteirinha];
+    setCarteirinhasSalvas(atualizadas);
+    localStorage.setItem('oab-carteirinhas', JSON.stringify(atualizadas));
+
+    alert('Carteirinha salva com sucesso!');
+  };
+
+  const deleteCarteirinha = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir esta carteirinha?')) {
+      const atualizadas = carteirinhasSalvas.filter(c => c.id !== id);
+      setCarteirinhasSalvas(atualizadas);
+      localStorage.setItem('oab-carteirinhas', JSON.stringify(atualizadas));
+    }
+  };
+
+  const reimprimirCarteirinha = (carteirinha: CarteirinhaRecord) => {
+    setFormData(carteirinha.dados);
+    setUserPhotos(carteirinha.fotos);
+    
+    // Encontrar e selecionar o template
+    const template = savedTemplates.find(t => t.id === carteirinha.templateId);
+    if (template) {
+      setSelectedTemplate(template.data);
+      setShowTemplateSelection(false);
+      setShowHistorico(false);
+    }
+  };
+
+  const carteirinhasFiltradas = carteirinhasSalvas.filter(c => 
+    c.nome.toLowerCase().includes(buscaHistorico.toLowerCase()) ||
+    c.templateName.toLowerCase().includes(buscaHistorico.toLowerCase()) ||
+    c.emitidaEm.toLowerCase().includes(buscaHistorico.toLowerCase())
+  );
 
   const allFields = selectedTemplate ? [...selectedTemplate.frenteCampos, ...selectedTemplate.versoCampos] : [];
   const uniqueTextFields = Array.from(new Set(allFields.filter(f => f.type === 'texto').map(f => f.name)));
@@ -843,40 +873,137 @@ function GeneratorModule({ backToAdmin }: { backToAdmin: () => void }) {
   if (showTemplateSelection) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="max-w-4xl w-full">
+        <div className="max-w-6xl w-full">
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">Selecione um Template</h2>
-              <p className="text-gray-600">Escolha um template existente ou crie um novo para emitir carteirinhas</p>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">Sistema OAB-SP</h2>
+              <div className="flex justify-center gap-4 mb-6">
+                <button 
+                  onClick={() => setShowHistorico(false)}
+                  className={cn(
+                    "px-6 py-3 rounded-lg flex items-center gap-2 text-sm font-medium transition-all",
+                    !showHistorico 
+                      ? "bg-green-700 text-white shadow-md" 
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  )}
+                >
+                  <FolderOpen size={16} /> Templates
+                </button>
+                <button 
+                  onClick={() => setShowHistorico(true)}
+                  className={cn(
+                    "px-6 py-3 rounded-lg flex items-center gap-2 text-sm font-medium transition-all",
+                    showHistorico 
+                      ? "bg-green-700 text-white shadow-md" 
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  )}
+                >
+                  <Download size={16} /> Histórico ({carteirinhasSalvas.length})
+                </button>
+              </div>
+              <p className="text-gray-600">
+                {!showHistorico 
+                  ? "Escolha um template para criar nova carteirinha" 
+                  : "Visualize e reimprima carteirinhas já emitidas"}
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {savedTemplates.length === 0 ? (
-                <div className="col-span-full text-center py-12">
-                  <FolderOpen size={48} className="mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500 text-lg">Nenhum template encontrado</p>
-                  <p className="text-gray-400 text-sm mt-2">Crie um template primeiro no modo admin</p>
-                </div>
-              ) : (
-                savedTemplates.map(t => (
-                  <div key={t.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200 hover:border-green-500 transition-all cursor-pointer" onClick={() => selectTemplate(t.data)}>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-green-700 rounded-lg flex items-center justify-center">
-                        <Printer size={20} className="text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-gray-800">{t.name}</h3>
-                        <p className="text-sm text-gray-500">Template salvo</p>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <p>• {t.data.frenteCampos.length} campos (frente)</p>
-                      <p>• {t.data.versoCampos.length} campos (verso)</p>
-                    </div>
+            {!showHistorico ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {savedTemplates.length === 0 ? (
+                  <div className="col-span-full text-center py-12">
+                    <FolderOpen size={48} className="mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-500 text-lg">Nenhum template encontrado</p>
+                    <p className="text-gray-400 text-sm mt-2">Crie um template primeiro no modo admin</p>
                   </div>
-                ))
-              )}
-            </div>
+                ) : (
+                  savedTemplates.map(t => (
+                    <div key={t.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200 hover:border-green-500 transition-all cursor-pointer" onClick={() => selectTemplate(t.data)}>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-green-700 rounded-lg flex items-center justify-center">
+                          <Printer size={20} className="text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800">{t.name}</h3>
+                          <p className="text-sm text-gray-500">Template salvo</p>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        <p>• {t.data.frenteCampos.length} campos (frente)</p>
+                        <p>• {t.data.versoCampos.length} campos (verso)</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div>
+                <div className="mb-6">
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome, template ou data..."
+                    value={buscaHistorico}
+                    onChange={(e) => setBuscaHistorico(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                
+                {carteirinhasFiltradas.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Download size={48} className="mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-500 text-lg">Nenhuma carteirinha encontrada</p>
+                    <p className="text-gray-400 text-sm mt-2">
+                      {buscaHistorico ? 'Tente outra busca' : 'Nenhuma carteirinha emitida ainda'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {carteirinhasFiltradas.map(carteirinha => (
+                      <div key={carteirinha.id} className="bg-white rounded-lg shadow-md border border-gray-200 p-4 hover:border-green-500 transition-all">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h3 className="font-bold text-gray-800">{carteirinha.nome}</h3>
+                            <p className="text-sm text-gray-600">Template: {carteirinha.templateName}</p>
+                            <p className="text-xs text-gray-500">Emitida: {carteirinha.emitidaEm}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => reimprimirCarteirinha(carteirinha)}
+                              className="bg-green-700 hover:bg-green-800 text-white p-2 rounded text-sm"
+                              title="Reimprimir"
+                            >
+                              <Printer size={14} />
+                            </button>
+                            <button
+                              onClick={() => deleteCarteirinha(carteirinha.id)}
+                              className="bg-red-600 hover:bg-red-700 text-white p-2 rounded text-sm"
+                              title="Excluir"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          {carteirinha.frenteUrl && (
+                            <div>
+                              <p className="text-xs text-gray-600 mb-1">Frente:</p>
+                              <img src={carteirinha.frenteUrl} className="w-full h-24 object-cover rounded border" />
+                            </div>
+                          )}
+                          {carteirinha.versoUrl && (
+                            <div>
+                              <p className="text-xs text-gray-600 mb-1">Verso:</p>
+                              <img src={carteirinha.versoUrl} className="w-full h-24 object-cover rounded border" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-4">
               <button 
@@ -884,7 +1011,7 @@ function GeneratorModule({ backToAdmin }: { backToAdmin: () => void }) {
                 className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-medium transition-all"
               >
                 <Settings size={16} className="inline mr-2" />
-                Criar Novo Template
+                {!showHistorico ? 'Criar Novo Template' : 'Voltar'}
               </button>
             </div>
           </div>
@@ -961,9 +1088,17 @@ function GeneratorModule({ backToAdmin }: { backToAdmin: () => void }) {
             ))}
           </div>
 
-          <button onClick={downloadPNGs} className="w-full mt-8 bg-green-700 hover:bg-green-800 text-white py-4 rounded-lg font-bold shadow-lg flex justify-center items-center gap-2 transition-all hover:shadow-xl">
-            <Download size={20} /> Baixar Carteirinha
-          </button>
+          <div className="flex gap-3 mt-6">
+            <button 
+              onClick={saveCarteirinha}
+              className="flex-1 bg-blue-700 hover:bg-blue-800 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-all"
+            >
+              <Save size={16} /> Salvar Carteirinha
+            </button>
+            <button onClick={downloadPNGs} className="flex-1 bg-green-700 hover:bg-green-800 text-white py-4 rounded-lg font-bold shadow-lg flex justify-center items-center gap-2 transition-all hover:shadow-xl">
+              <Download size={20} /> Baixar Carteirinha
+            </button>
+          </div>
         </div>
 
         {/* PREVIEW */}

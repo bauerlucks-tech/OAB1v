@@ -7,5 +7,17 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5000,
     allowedHosts: true,
-  },
+    fs: {
+      strict: false
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'index.js': ['react', 'react-dom', 'react-konva']
+          }
+        }
+      }
+    }
+  }
 })
