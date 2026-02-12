@@ -423,8 +423,8 @@ export default function App() {
               template={currentTemplate}
               setTemplate={setCurrentTemplate}
               savedTemplates={savedTemplates}
+              onSaveTemplate={saveTemplate}
               onLoadTemplate={loadTemplate}
-              onDeleteTemplate={deleteTemplate}
               switchToGenerator={() => setMode('gerador')} 
             />
           ) : (
@@ -627,9 +627,25 @@ function AdminModule({
         </div>
 
         <div className="space-y-2">
-          <button onClick={() => {}} className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
-              <Save size={16} /> Salvar Template
-            </button>
+          <button 
+                onClick={() => {
+                  const promptResult = prompt("Nome do template:");
+                  if (promptResult?.trim()) {
+                    const templateToSave: SavedTemplate = {
+                      id: Math.random().toString(36).substr(2, 9),
+                      name: promptResult,
+                      data: template,
+                      createdAt: new Date().toISOString()
+                    };
+                    
+                    const updated = [...savedTemplates, templateToSave];
+                    setSavedTemplates(updated);
+                    localStorage.setItem('oab-templates', JSON.stringify(updated));
+                  }
+                }}
+                className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
+                  <Save size={16} /> Salvar Template
+              </button>
           <button onClick={switchToGenerator} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
             <Printer size={18} /> Ir para Emissão
           </button>
