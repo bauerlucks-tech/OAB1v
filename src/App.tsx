@@ -327,6 +327,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
               </button>
             </div>
           </div>
+          <div
             className={`relative border-2 border-gray-300 rounded-lg overflow-hidden ${
               isAddingField ? 'cursor-crosshair' : 'cursor-default'
             }`}
