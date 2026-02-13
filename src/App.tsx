@@ -386,13 +386,11 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
 
           {/* Editor de Propriedades */}
           {selectedField && (
-            <FieldEditor
+            <FieldDataEditor
               field={selectedField}
-              onUpdate={(field) => {
-                updateField(field.id, field);
-                setSelectedField(field);
-              }}
-              onDelete={() => deleteField(selectedField.id)}
+              value={fieldValues[selectedField.id] || ''}
+              onChange={(value) => handleFieldDataChange(selectedField.id, value)}
+              onClose={handleFieldEditorClose}
             />
           )}
         </div>
@@ -409,6 +407,199 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   );
 }
 
+// --- COMPONENTE PREVIEW INTERATIVO ---
+function InteractivePreview({ template, dados, foto, onFieldClick, onFieldDataChange }: {
+  template: TemplateData;
+  dados: CarteirinhaData;
+  foto: string | null;
+  onFieldClick: (field: Field) => void;
+  onFieldDataChange: (fieldId: string, value: string) => void;
+}) {
+  const [selectedField, setSelectedField] = useState<Field | null>(null);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const values: Record<string, string> = {};
+    template.frenteCampos.forEach(campo => {
+      if (campo.type === 'texto') {
+        switch (campo.name.toLowerCase()) {
+          case 'nome':
+            values[campo.id] = dados.nome;
+            break;
+          case 'cpf':
+            values[campo.id] = dados.cpf;
+            break;
+          case 'oab':
+            values[campo.id] = dados.oab;
+            break;
+          default:
+            values[campo.id] = '';
+        }
+      } else if (campo.type === 'foto') {
+        values[campo.id] = foto || '';
+      }
+    });
+    setFieldValues(values);
+  }, [template, dados, foto]);
+
+  const handlePreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = previewRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Verificar se clicou em algum campo
+    const clickedField = template.frenteCampos.find(campo => {
+      const campoX = (campo.x / 600) * 400;
+      const campoY = (campo.y / 400) * 267;
+      const campoW = (campo.w / 600) * 400;
+      const campoH = (campo.h / 400) * 267;
+      
+      return x >= campoX && x <= campoX + campoW && y >= campoY && y <= campoY + campoH;
+    });
+    
+    if (clickedField) {
+      setSelectedField(clickedField);
+      onFieldClick(clickedField);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <h4 className="font-medium mb-2">Preview Interativo - Clique nos campos para editar</h4>
+      <div className="border rounded-lg p-4 bg-gray-50">
+        {template.frenteImg ? (
+          <div 
+            ref={previewRef}
+            className="relative cursor-pointer" 
+            style={{ width: 'fit-content' }}
+            onClick={handlePreviewClick}
+          >
+            <img
+              src={template.frenteImg}
+              alt="Template"
+              style={{ maxWidth: '400px' }}
+            />
+            {template.frenteCampos.map((campo) => (
+              <div
+                key={campo.id}
+                className={`absolute border-2 transition-all ${
+                  selectedField?.id === campo.id
+                    ? 'border-blue-500 bg-blue-100/50'
+                    : campo.type === 'texto'
+                    ? 'border-green-500 bg-green-100/50'
+                    : 'border-purple-500 bg-purple-100/50'
+                }`}
+                style={{
+                  left: `${(campo.x / 600) * 400}px`,
+                  top: `${(campo.y / 400) * 267}px`,
+                  width: `${(campo.w / 600) * 400}px`,
+                  height: `${(campo.h / 400) * 267}px`,
+                  fontSize: campo.fontSize ? `${(campo.fontSize / 14) * 10}px` : '10px',
+                  color: campo.color,
+                  fontFamily: campo.fontFamily,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+                  cursor: 'pointer'
+                }}
+              >
+                {campo.type === 'texto' ? (
+                  <span className="truncate px-1">{fieldValues[campo.id] || campo.name}</span>
+                ) : (
+                  fieldValues[campo.id] && (
+                    <img 
+                      src={fieldValues[campo.id]} 
+                      alt="Campo Foto" 
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        objectFit: 'cover' 
+                      }} 
+                    />
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm">Nenhuma imagem de template</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- COMPONENTE EDITOR DE DADOS DE CAMPO ---
+function FieldDataEditor({ field, value, onChange, onClose }: {
+  field: Field;
+  value: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Editar Campo: {field.name}</h3>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {field.type === 'texto' ? 'Texto do Campo' : 'URL da Foto'}
+            </label>
+            {field.type === 'texto' ? (
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder={`Digite o texto para ${campo.name}`}
+                autoFocus
+              />
+            ) : (
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        onChange(event.target?.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full text-sm"
+                />
+                {value && (
+                  <img
+                    src={value}
+                    alt="Preview"
+                    className="mt-2 w-32 h-24 object-cover rounded border"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- COMPONENTE GERADOR DE CARTEIRINHA ---
 function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }: {
   templates: SavedTemplate[];
@@ -421,7 +612,8 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
     oab: ''
   });
   const [foto, setFoto] = useState<string | null>(null);
-  const [previewData, setPreviewData] = useState<Record<string, string>>({});
+  const [selectedField, setSelectedField] = useState<Field | null>(null);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
 
   const handleFotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -432,6 +624,34 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleFieldClick = (field: Field) => {
+    setSelectedField(field);
+  };
+
+  const handleFieldDataChange = (fieldId: string, value: string) => {
+    setFieldValues(prev => ({ ...prev, [fieldId]: value }));
+    
+    // Atualizar dados principais se for um campo correspondente
+    const campo = selectedTemplate?.frenteCampos.find(c => c.id === fieldId);
+    if (campo) {
+      switch (campo.name.toLowerCase()) {
+        case 'nome':
+          setDados(prev => ({ ...prev, nome: value }));
+          break;
+        case 'cpf':
+          setDados(prev => ({ ...prev, cpf: value }));
+          break;
+        case 'oab':
+          setDados(prev => ({ ...prev, oab: value }));
+          break;
+      }
+    }
+  };
+
+  const handleFieldEditorClose = () => {
+    setSelectedField(null);
   };
 
   const gerarCarteirinha = () => {
@@ -449,7 +669,8 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
     const campoDados: Record<string, string> = {
       nome: dados.nome,
       cpf: dados.cpf,
-      oab: dados.oab
+      oab: dados.oab,
+      ...fieldValues // Adicionar valores dos campos editados
     };
 
     // Adicionar foto se existir
@@ -826,10 +1047,12 @@ export default function App() {
               </p>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CarteirinhaGenerator
-                  templates={savedTemplates}
-                  selectedTemplate={selectedTemplateForGeneration}
-                  onTemplateSelect={setSelectedTemplateForGeneration}
+                <InteractivePreview
+                  template={selectedTemplate}
+                  dados={dados}
+                  foto={foto}
+                  onFieldClick={handleFieldClick}
+                  onFieldDataChange={handleFieldDataChange}
                 />
                 
                 <div>
