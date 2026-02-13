@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon, Crop, Scissors, Sparkles } from 'lucide-react';
+import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon, Crop, Scissors, Sparkles, Scale, Gavel } from 'lucide-react';
 import { supabase, salvarTemplateSupabase, carregarTemplatesSupabase, salvarCarteirinhaSupabase } from './lib/supabase';
 import Cropper from 'react-easy-crop';
 
@@ -319,7 +319,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                 className={`px-3 py-1 rounded text-sm flex items-center gap-1 ${
                   isAddingField
                     ? 'bg-red-500 text-white'
-                    : 'bg-green-500 text-white'
+                    : 'bg-amber-500 text-white'
                 }`}
               >
                 <Plus size={14} />
@@ -327,9 +327,6 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
               </button>
             </div>
           </div>
-
-          <div
-            ref={canvasRef}
             className={`relative border-2 border-gray-300 rounded-lg overflow-hidden ${
               isAddingField ? 'cursor-crosshair' : 'cursor-default'
             }`}
@@ -350,9 +347,9 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                 key={field.id}
                 className={`absolute border-2 cursor-move ${
                   selectedField?.id === field.id
-                    ? 'border-blue-500 bg-blue-100/50'
+                    ? 'border-amber-500 bg-amber-100/50'
                     : field.type === 'texto'
-                    ? 'border-green-500 bg-green-100/50'
+                    ? 'border-blue-500 bg-blue-100/50'
                     : 'border-purple-500 bg-purple-100/50'
                 }`}
                 style={{
@@ -379,7 +376,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
             ))}
 
             {isAddingField && (
-              <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded text-sm">
+              <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-1 rounded text-sm">
                 Clique para adicionar campo {fieldType}
               </div>
             )}
@@ -400,7 +397,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
       {/* Botão Salvar */}
       <button
         onClick={onSave}
-        className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
+        className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
       >
         <Save size={16} /> Salvar Template no Supabase
       </button>
@@ -1008,7 +1005,7 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
                       <button
                         onClick={enhancePhotoWithAI}
                         disabled={isProcessingAI}
-                        className="flex items-center gap-2 px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600 disabled:bg-gray-400"
+                        className="flex items-center gap-2 px-3 py-1 bg-amber-500 text-white rounded text-sm hover:bg-amber-600 disabled:bg-gray-400"
                       >
                         <Sparkles size={14} />
                         {isProcessingAI ? 'Processando...' : 'IA'}
@@ -1114,13 +1111,13 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
             <div className="flex gap-2">
               <button
                 onClick={handleCropConfirm}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded font-medium"
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded font-medium"
               >
                 Confirmar Corte
               </button>
               <button
                 onClick={handleCropCancel}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded font-medium"
+                className="flex-1 bg-slate-500 hover:bg-slate-600 text-white py-2 px-4 rounded font-medium"
               >
                 Cancelar
               </button>
@@ -1129,12 +1126,12 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
         </div>
       )}
 
-      {/* Gerar Carteirinha Button */}
+      {/* Gerar Documento Button */}
       <button
         onClick={gerarCarteirinha}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
+        className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
       >
-        <Printer size={16} /> Gerar Carteirinha
+        <Printer size={16} /> Gerar Documento
       </button>
           </div>
         </div>
@@ -1216,30 +1213,30 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-gray-50">
-      {/* HEADER OAB-SP STYLE */}
-      <header className="bg-gradient-to-r from-green-700 to-green-800 text-white shadow-lg sticky top-0 z-50">
+    <div className="min-h-screen flex flex-col font-sans bg-slate-50">
+      {/* HEADER JUSTIÇA STYLE */}
+      <header className="bg-gradient-to-r from-slate-800 to-slate-900 text-white shadow-lg sticky top-0 z-50 border-b-4 border-amber-500">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <div className="bg-white p-3 rounded-lg shadow-md">
-                <div className="w-8 h-8 bg-green-700 rounded flex items-center justify-center">
-                  <Printer size={20} className="text-white" />
+              <div className="bg-amber-500 p-3 rounded-lg shadow-md">
+                <div className="w-8 h-8 bg-slate-900 rounded flex items-center justify-center">
+                  <Gavel size={20} className="text-amber-500" />
                 </div>
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Sistema OAB-SP</h1>
-                <p className="text-green-100 text-sm">Emissão de Carteirinhas Digitais</p>
+                <h1 className="text-2xl font-bold">Sistema de Justiça</h1>
+                <p className="text-slate-300 text-sm">Emissão de Documentos Oficiais</p>
               </div>
             </div>
             
-            <div className="flex bg-green-900/50 p-1 rounded-lg backdrop-blur">
+            <div className="flex bg-slate-700/50 p-1 rounded-lg backdrop-blur">
               <button 
                 onClick={() => setMode('admin')}
                 className={`px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all ${
                   mode === 'admin'
-                    ? 'bg-white text-green-700 shadow-md'
-                    : 'text-green-100 hover:text-white hover:bg-green-700/50'
+                    ? 'bg-amber-500 text-slate-900 shadow-md'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
                 }`}
               >
                 <Settings size={16} /> Criar Template
@@ -1248,11 +1245,11 @@ export default function App() {
                 onClick={() => setMode('gerador')}
                 className={`px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all ${
                   mode === 'gerador'
-                    ? 'bg-white text-green-700 shadow-md'
-                    : 'text-green-100 hover:text-white hover:bg-green-700/50'
+                    ? 'bg-amber-500 text-slate-900 shadow-md'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
                 }`}
               >
-                <Printer size={16} /> Emitir Carteirinha
+                <Printer size={16} /> Emitir Documento
               </button>
             </div>
           </div>
@@ -1260,15 +1257,15 @@ export default function App() {
       </header>
 
       {/* CONTEÚDO */}
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-6 bg-gradient-to-br from-slate-50 to-slate-100">
         <div className="max-w-7xl mx-auto">
           {mode === 'admin' ? (
-            <div className="bg-white rounded-xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-center mb-8 text-gray-800">
-                🚀 Módulo Admin - Criar Templates
+            <div className="bg-white rounded-xl shadow-lg p-8 border-l-4 border-amber-500">
+              <h2 className="text-2xl font-bold text-center mb-8 text-slate-800">
+                ⚖️ Módulo Administrativo - Criar Templates
               </h2>
-              <p className="text-center text-gray-600 mb-8">
-                Configure templates para emissão de carteirinhas com editor visual completo
+              <p className="text-center text-slate-600 mb-8">
+                Configure templates para emissão de documentos oficiais com editor visual completo
               </p>
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1321,12 +1318,12 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-center mb-8 text-gray-800">
-                🚀 Módulo Gerador - Emitir Carteirinhas
+            <div className="bg-white rounded-xl shadow-lg p-8 border-l-4 border-amber-500">
+              <h2 className="text-2xl font-bold text-center mb-8 text-slate-800">
+                ⚖️ Módulo Gerador - Emitir Documentos
               </h2>
-              <p className="text-center text-gray-600 mb-8">
-                Selecione um template e preencha os dados para emissão
+              <p className="text-center text-slate-600 mb-8">
+                Selecione um template e preencha os dados para emissão oficial
               </p>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
