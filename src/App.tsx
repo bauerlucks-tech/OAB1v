@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon } from 'lucide-react';
-import { supabase, salvarTemplateSupabase, carregarTemplatesSupabase } from './lib/supabase';
+import { supabase, salvarTemplateSupabase, carregarTemplatesSupabase, salvarCarteirinhaSupabase } from './lib/supabase';
 
 // --- TIPOS ---
 interface Field {
@@ -654,7 +654,7 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
     setSelectedField(null);
   };
 
-  const gerarCarteirinha = () => {
+  const gerarCarteirinha = async () => {
     if (!selectedTemplate) {
       alert('Selecione um template primeiro!');
       return;
@@ -678,7 +678,24 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
       campoDados.foto = foto;
     }
 
-    alert('Carteirinha gerada com sucesso! (Funcionalidade de exportação em desenvolvimento)');
+    try {
+      // Salvar carteirinha no Supabase
+      await salvarCarteirinhaSupabase({
+        nome: dados.nome,
+        templateId: selectedTemplate.id,
+        templateName: selectedTemplate.name,
+        dados: campoDados,
+        fotos: foto ? [foto] : [],
+        frenteUrl: selectedTemplate.frenteImg,
+        versoUrl: selectedTemplate.versoImg,
+        emitidaEm: new Date().toISOString()
+      });
+
+      alert('Carteirinha salva com sucesso no Supabase!');
+    } catch (error) {
+      console.error('Erro ao salvar carteirinha:', error);
+      alert('Erro ao salvar carteirinha. Tente novamente.');
+    }
   };
 
   useEffect(() => {
