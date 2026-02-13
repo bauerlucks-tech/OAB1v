@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon, Crop, Scissors } from 'lucide-react';
 import { supabase, salvarTemplateSupabase, carregarTemplatesSupabase, salvarCarteirinhaSupabase } from './lib/supabase';
+import Cropper from 'react-easy-crop';
 
 // --- TIPOS ---
 interface Field {
@@ -614,16 +615,81 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
   const [foto, setFoto] = useState<string | null>(null);
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [showCropper, setShowCropper] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   const handleFotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        setFoto(event.target?.result as string);
+        setImageToCrop(event.target?.result as string);
+        setShowCropper(true);
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const createImage = (url: string) =>
+    new Promise((resolve, reject) => {
+      const image = new Image();
+      image.addEventListener('load', () => resolve(image));
+      image.addEventListener('error', (error) => reject(error));
+      image.setAttribute('crossOrigin', 'anonymous');
+      image.src = url;
+    });
+
+  const getCroppedImg = async (imageSrc: string, pixelCrop: any) => {
+    const image = await createImage(imageSrc) as any;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      return null;
+    }
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+
+    ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) {
+          resolve(URL.createObjectURL(blob));
+        } else {
+          resolve(null);
+        }
+      }, 'image/jpeg');
+    });
+  };
+
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleCropConfirm = async () => {
+    if (imageToCrop && croppedAreaPixels) {
+      try {
+        const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
+        if (croppedImage) {
+          setFoto(croppedImage as string);
+          setShowCropper(false);
+          setImageToCrop(null);
+        }
+      } catch (error) {
+        console.error('Erro ao cortar imagem:', error);
+        alert('Erro ao cortar imagem. Tente novamente.');
+      }
+    }
+  };
+
+  const handleCropCancel = () => {
+    setShowCropper(false);
+    setImageToCrop(null);
   };
 
   const handleFieldClick = (field: Field) => {
@@ -802,11 +868,23 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
                   className="text-xs w-full"
                 />
                 {foto && (
-                  <img
-                    src={foto}
-                    alt="Foto"
-                    className="mt-2 w-24 h-24 object-cover rounded border"
-                  />
+                  <div className="mt-2 space-y-2">
+                    <img
+                      src={foto}
+                      alt="Foto"
+                      className="w-24 h-24 object-cover rounded border"
+                    />
+                    <button
+                      onClick={() => {
+                        setImageToCrop(foto);
+                        setShowCropper(true);
+                      }}
+                      className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                    >
+                      <Scissors size={14} />
+                      Cortar Foto
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -864,12 +942,70 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
               </div>
             </div>
 
-            <button
-              onClick={gerarCarteirinha}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
-            >
-              <Printer size={16} /> Gerar Carteirinha
-            </button>
+            {/* Modal de Corte de Foto */}
+      {showCropper && imageToCrop && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Cortar Foto</h3>
+              <button 
+                onClick={handleCropCancel}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="relative h-96 mb-4">
+              <Cropper
+                image={imageToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Zoom</label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={handleCropConfirm}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded font-medium"
+              >
+                Confirmar Corte
+              </button>
+              <button
+                onClick={handleCropCancel}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded font-medium"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gerar Carteirinha Button */}
+      <button
+        onClick={gerarCarteirinha}
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
+      >
+        <Printer size={16} /> Gerar Carteirinha
+      </button>
           </div>
         </div>
       )}
