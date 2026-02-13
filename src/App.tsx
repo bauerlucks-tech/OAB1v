@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, Printer, Save, Trash2, Plus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon } from 'lucide-react';
 import { supabase, salvarTemplateSupabase, carregarTemplatesSupabase } from './lib/supabase';
 
 // --- TIPOS ---
@@ -29,7 +29,614 @@ interface SavedTemplate {
   id: string;
   name: string;
   data: TemplateData;
-  createdAt: string;
+  created_at: string;
+}
+
+interface CarteirinhaData {
+  nome: string;
+  cpf: string;
+  oab: string;
+  foto?: string;
+}
+
+// --- COMPONENTE EDITOR DE CAMPOS ---
+function FieldEditor({ field, onUpdate, onDelete }: {
+  field: Field;
+  onUpdate: (field: Field) => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="absolute bg-white border-2 border-blue-500 rounded-lg p-3 shadow-lg z-10" 
+         style={{ 
+           left: `${field.x}px`, 
+           top: `${field.y}px`, 
+           width: `${Math.max(field.w, 200)}px` 
+         }}>
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-xs font-bold text-blue-600">{field.name}</span>
+        <button 
+          onClick={onDelete}
+          className="text-red-500 hover:text-red-700"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
+      
+      <div className="space-y-2 text-xs">
+        <div className="flex items-center gap-2">
+          <label className="font-medium">Tipo:</label>
+          <select
+            value={field.type}
+            onChange={(e) => onUpdate({ ...field, type: e.target.value as 'texto' | 'foto' })}
+            className="border rounded px-1 py-0.5"
+          >
+            <option value="texto">Texto</option>
+            <option value="foto">Foto</option>
+          </select>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <label className="font-medium">Nome:</label>
+          <input
+            type="text"
+            value={field.name}
+            onChange={(e) => onUpdate({ ...field, name: e.target.value })}
+            className="border rounded px-1 py-0.5 flex-1"
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-1">
+            <label className="font-medium">X:</label>
+            <input
+              type="number"
+              value={field.x}
+              onChange={(e) => onUpdate({ ...field, x: parseInt(e.target.value) })}
+              className="border rounded px-1 py-0.5 w-16"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="font-medium">Y:</label>
+            <input
+              type="number"
+              value={field.y}
+              onChange={(e) => onUpdate({ ...field, y: parseInt(e.target.value) })}
+              className="border rounded px-1 py-0.5 w-16"
+            />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center gap-1">
+            <label className="font-medium">L:</label>
+            <input
+              type="number"
+              value={field.w}
+              onChange={(e) => onUpdate({ ...field, w: parseInt(e.target.value) })}
+              className="border rounded px-1 py-0.5 w-16"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="font-medium">A:</label>
+            <input
+              type="number"
+              value={field.h}
+              onChange={(e) => onUpdate({ ...field, h: parseInt(e.target.value) })}
+              className="border rounded px-1 py-0.5 w-16"
+            />
+          </div>
+        </div>
+        
+        {field.type === 'texto' && (
+          <>
+            <div className="flex items-center gap-2">
+              <label className="font-medium">Fonte:</label>
+              <input
+                type="number"
+                value={field.fontSize || 14}
+                onChange={(e) => onUpdate({ ...field, fontSize: parseInt(e.target.value) })}
+                className="border rounded px-1 py-0.5 w-16"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="font-medium">Cor:</label>
+              <input
+                type="color"
+                value={field.color || '#000000'}
+                onChange={(e) => onUpdate({ ...field, color: e.target.value })}
+                className="w-8 h-6 border rounded"
+              />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// --- COMPONENTE EDITOR DE TEMPLATE ---
+function TemplateEditor({ template, onTemplateChange, onSave }: {
+  template: TemplateData;
+  onTemplateChange: (template: TemplateData) => void;
+  onSave: () => void;
+}) {
+  const [selectedField, setSelectedField] = useState<Field | null>(null);
+  const [isAddingField, setIsAddingField] = useState(false);
+  const [fieldType, setFieldType] = useState<'texto' | 'foto'>('texto');
+  const [isDragging, setIsDragging] = useState<string | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef<HTMLDivElement>(null);
+
+  const handleImageUpload = (side: 'frente' | 'verso', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        onTemplateChange({
+          ...template,
+          [side === 'frente' ? 'frenteImg' : 'versoImg']: base64
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const addField = (x: number, y: number) => {
+    const newField: Field = {
+      id: Date.now().toString(),
+      type: fieldType,
+      name: `Campo ${template.frenteCampos.length + 1}`,
+      x,
+      y,
+      w: fieldType === 'foto' ? 80 : 120,
+      h: fieldType === 'foto' ? 80 : 20,
+      fontSize: fieldType === 'texto' ? 14 : undefined,
+      fontFamily: 'Arial',
+      color: '#000000'
+    };
+
+    onTemplateChange({
+      ...template,
+      frenteCampos: [...template.frenteCampos, newField]
+    });
+    setIsAddingField(false);
+    setSelectedField(newField);
+  };
+
+  const updateField = (fieldId: string, updates: Partial<Field>) => {
+    onTemplateChange({
+      ...template,
+      frenteCampos: template.frenteCampos.map(field =>
+        field.id === fieldId ? { ...field, ...updates } : field
+      )
+    });
+  };
+
+  const deleteField = (fieldId: string) => {
+    onTemplateChange({
+      ...template,
+      frenteCampos: template.frenteCampos.filter(field => field.id !== fieldId)
+    });
+    if (selectedField?.id === fieldId) {
+      setSelectedField(null);
+    }
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isAddingField || !template.frenteImg) return;
+    
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect) {
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      addField(x, y);
+    }
+  };
+
+  const handleMouseDown = (fieldId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(fieldId);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !canvasRef.current) return;
+    
+    const rect = canvasRef.current.getBoundingClientRect();
+    const deltaX = e.clientX - dragStart.x;
+    const deltaY = e.clientY - dragStart.y;
+    
+    const field = template.frenteCampos.find(f => f.id === isDragging);
+    if (field) {
+      const newX = Math.max(0, Math.min(field.x + deltaX, rect.width - field.w));
+      const newY = Math.max(0, Math.min(field.y + deltaY, rect.height - field.h));
+      
+      updateField(isDragging, { x: newX, y: newY });
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Upload de Imagens */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Base Frente</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleImageUpload('frente', e)}
+            className="text-xs w-full"
+          />
+          {template.frenteImg && (
+            <img
+              src={template.frenteImg}
+              alt="Frente"
+              className="mt-2 w-full h-32 object-cover rounded border"
+            />
+          )}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Base Verso</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => handleImageUpload('verso', e)}
+            className="text-xs w-full"
+          />
+          {template.versoImg && (
+            <img
+              src={template.versoImg}
+              alt="Verso"
+              className="mt-2 w-full h-32 object-cover rounded border"
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Editor Visual */}
+      {template.frenteImg && (
+        <div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-lg">Editor de Campos</h3>
+            <div className="flex gap-2">
+              <select
+                value={fieldType}
+                onChange={(e) => setFieldType(e.target.value as 'texto' | 'foto')}
+                className="px-2 py-1 border rounded text-sm"
+              >
+                <option value="texto">Texto</option>
+                <option value="foto">Foto</option>
+              </select>
+              <button
+                onClick={() => setIsAddingField(!isAddingField)}
+                className={`px-3 py-1 rounded text-sm flex items-center gap-1 ${
+                  isAddingField
+                    ? 'bg-red-500 text-white'
+                    : 'bg-green-500 text-white'
+                }`}
+              >
+                <Plus size={14} />
+                {isAddingField ? 'Cancelar' : 'Adicionar Campo'}
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={canvasRef}
+            className={`relative border-2 border-gray-300 rounded-lg overflow-hidden ${
+              isAddingField ? 'cursor-crosshair' : 'cursor-default'
+            }`}
+            onClick={handleCanvasClick}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            style={{
+              backgroundImage: `url(${template.frenteImg})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              width: '100%',
+              height: '500px'
+            }}
+          >
+            {template.frenteCampos.map((field) => (
+              <div
+                key={field.id}
+                className={`absolute border-2 cursor-move ${
+                  selectedField?.id === field.id
+                    ? 'border-blue-500 bg-blue-100/50'
+                    : field.type === 'texto'
+                    ? 'border-green-500 bg-green-100/50'
+                    : 'border-purple-500 bg-purple-100/50'
+                }`}
+                style={{
+                  left: `${field.x}px`,
+                  top: `${field.y}px`,
+                  width: `${field.w}px`,
+                  height: `${field.h}px`
+                }}
+                onMouseDown={(e) => handleMouseDown(field.id, e)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedField(field);
+                }}
+              >
+                <div className="flex items-center justify-center h-full text-xs p-1">
+                  {field.type === 'texto' ? (
+                    <Type size={12} />
+                  ) : (
+                    <ImageIcon size={12} />
+                  )}
+                  <span className="ml-1 truncate">{field.name}</span>
+                </div>
+              </div>
+            ))}
+
+            {isAddingField && (
+              <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded text-sm">
+                Clique para adicionar campo {fieldType}
+              </div>
+            )}
+          </div>
+
+          {/* Editor de Propriedades */}
+          {selectedField && (
+            <FieldEditor
+              field={selectedField}
+              onUpdate={(field) => {
+                updateField(field.id, field);
+                setSelectedField(field);
+              }}
+              onDelete={() => deleteField(selectedField.id)}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Botão Salvar */}
+      <button
+        onClick={onSave}
+        className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
+      >
+        <Save size={16} /> Salvar Template no Supabase
+      </button>
+    </div>
+  );
+}
+
+// --- COMPONENTE GERADOR DE CARTEIRINHA ---
+function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }: {
+  templates: SavedTemplate[];
+  selectedTemplate: TemplateData | null;
+  onTemplateSelect: (template: TemplateData) => void;
+}) {
+  const [dados, setDados] = useState<CarteirinhaData>({
+    nome: '',
+    cpf: '',
+    oab: ''
+  });
+  const [foto, setFoto] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<Record<string, string>>({});
+
+  const handleFotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFoto(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const gerarCarteirinha = () => {
+    if (!selectedTemplate) {
+      alert('Selecione um template primeiro!');
+      return;
+    }
+
+    if (!dados.nome || !dados.cpf || !dados.oab) {
+      alert('Preencha todos os dados!');
+      return;
+    }
+
+    // Mapear dados para os campos
+    const campoDados: Record<string, string> = {
+      nome: dados.nome,
+      cpf: dados.cpf,
+      oab: dados.oab
+    };
+
+    // Adicionar foto se existir
+    if (foto) {
+      campoDados.foto = foto;
+    }
+
+    alert('Carteirinha gerada com sucesso! (Funcionalidade de exportação em desenvolvimento)');
+  };
+
+  useEffect(() => {
+    if (selectedTemplate) {
+      const novoPreview: Record<string, string> = {};
+      selectedTemplate.frenteCampos.forEach(campo => {
+        if (campo.type === 'texto') {
+          switch (campo.name.toLowerCase()) {
+            case 'nome':
+              novoPreview[campo.id] = dados.nome;
+              break;
+            case 'cpf':
+              novoPreview[campo.id] = dados.cpf;
+              break;
+            case 'oab':
+              novoPreview[campo.id] = dados.oab;
+              break;
+            default:
+              novoPreview[campo.id] = campo.name;
+          }
+        } else if (campo.type === 'foto') {
+          novoPreview[campo.id] = foto || '';
+        }
+      });
+      setPreviewData(novoPreview);
+    }
+  }, [selectedTemplate, dados, foto]);
+
+  return (
+    <div className="space-y-6">
+      {/* Seleção de Template */}
+      <div>
+        <h3 className="font-bold text-lg mb-4">Selecionar Template</h3>
+        <div className="space-y-2">
+          {templates.length === 0 ? (
+            <p className="text-sm text-gray-500 italic">Nenhum template disponível</p>
+          ) : (
+            templates.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => onTemplateSelect(t.data)}
+                className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                  selectedTemplate?.id === t.data.id
+                    ? 'bg-green-50 border-green-500'
+                    : 'bg-gray-50 border-transparent hover:bg-green-50 hover:border-green-500'
+                }`}
+              >
+                <div className="font-medium">{t.name}</div>
+                <div className="text-xs text-gray-500">
+                  {t.data.frenteCampos.length} campos configurados
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Dados da Carteirinha */}
+      {selectedTemplate && (
+        <div>
+          <h3 className="font-bold text-lg mb-4">Dados da Carteirinha</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
+              <input
+                type="text"
+                value={dados.nome}
+                onChange={(e) => setDados({ ...dados, nome: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Digite o nome completo"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
+              <input
+                type="text"
+                value={dados.cpf}
+                onChange={(e) => setDados({ ...dados, cpf: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="000.000.000-00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">OAB/UF</label>
+              <input
+                type="text"
+                value={dados.oab}
+                onChange={(e) => setDados({ ...dados, oab: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="123456/SP"
+              />
+            </div>
+
+            {/* Verificar se existe campo de foto no template */}
+            {selectedTemplate.frenteCampos.some(c => c.type === 'foto') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Foto</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFotoUpload}
+                  className="text-xs w-full"
+                />
+                {foto && (
+                  <img
+                    src={foto}
+                    alt="Foto"
+                    className="mt-2 w-24 h-24 object-cover rounded border"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Preview */}
+            <div>
+              <h4 className="font-medium mb-2">Preview</h4>
+              <div className="border rounded-lg p-4 bg-gray-50">
+                {selectedTemplate.frenteImg ? (
+                  <div className="relative" style={{ width: 'fit-content' }}>
+                    <img
+                      src={selectedTemplate.frenteImg}
+                      alt="Template"
+                      style={{ maxWidth: '400px' }}
+                    />
+                    {selectedTemplate.frenteCampos.map((campo) => (
+                      <div
+                        key={campo.id}
+                        className="absolute text-xs"
+                        style={{
+                          left: `${(campo.x / 600) * 400}px`,
+                          top: `${(campo.y / 400) * 267}px`,
+                          width: `${(campo.w / 600) * 400}px`,
+                          height: `${(campo.h / 400) * 267}px`,
+                          fontSize: campo.fontSize ? `${(campo.fontSize / 14) * 10}px` : '10px',
+                          color: campo.color,
+                          fontFamily: campo.fontFamily,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {campo.type === 'texto' ? (
+                          previewData[campo.id] || campo.name
+                        ) : (
+                          previewData[campo.id] && (
+                            <img 
+                              src={previewData[campo.id]} 
+                              alt="Campo Foto" 
+                              style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'cover' 
+                              }} 
+                            />
+                          )
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-sm">Nenhuma imagem de template</p>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={gerarCarteirinha}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
+            >
+              <Printer size={16} /> Gerar Carteirinha
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // --- TELA PRINCIPAL ---
@@ -37,13 +644,14 @@ export default function App() {
   const [mode, setMode] = useState<'admin' | 'gerador'>('admin');
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [currentTemplate, setCurrentTemplate] = useState<TemplateData>({
-    id: '',
+    id: Date.now().toString(),
     name: 'Novo Template',
     frenteImg: null,
     versoImg: null,
     frenteCampos: [],
     versoCampos: []
   });
+  const [selectedTemplateForGeneration, setSelectedTemplateForGeneration] = useState<TemplateData | null>(null);
 
   // Carregar dados do Supabase
   useEffect(() => {
@@ -58,10 +666,6 @@ export default function App() {
     
     carregarDados();
   }, []);
-
-  const loadTemplate = (template: SavedTemplate) => {
-    setCurrentTemplate(template.data);
-  };
 
   const deleteTemplate = async (id: string) => {
     try {
@@ -78,9 +682,13 @@ export default function App() {
   };
 
   const salvarTemplateAdmin = async () => {
-    const promptResult = prompt("Nome do template:");
-    if (!promptResult?.trim()) {
+    if (!currentTemplate.name.trim()) {
       alert('Digite um nome para o template!');
+      return;
+    }
+
+    if (!currentTemplate.frenteImg) {
+      alert('Carregue uma imagem para a frente!');
       return;
     }
 
@@ -124,13 +732,21 @@ export default function App() {
             <div className="flex bg-green-900/50 p-1 rounded-lg backdrop-blur">
               <button 
                 onClick={() => setMode('admin')}
-                className="px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all bg-white text-green-700 shadow-md"
+                className={`px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all ${
+                  mode === 'admin'
+                    ? 'bg-white text-green-700 shadow-md'
+                    : 'text-green-100 hover:text-white hover:bg-green-700/50'
+                }`}
               >
                 <Settings size={16} /> Criar Template
               </button>
               <button 
                 onClick={() => setMode('gerador')}
-                className="px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium text-green-100 hover:text-white hover:bg-green-700/50"
+                className={`px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all ${
+                  mode === 'gerador'
+                    ? 'bg-white text-green-700 shadow-md'
+                    : 'text-green-100 hover:text-white hover:bg-green-700/50'
+                }`}
               >
                 <Printer size={16} /> Emitir Carteirinha
               </button>
@@ -148,20 +764,21 @@ export default function App() {
                 🚀 Módulo Admin - Criar Templates
               </h2>
               <p className="text-center text-gray-600 mb-8">
-                Configure templates para emissão de carteirinhas com integração Supabase
+                Configure templates para emissão de carteirinhas com editor visual completo
               </p>
               
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-bold text-lg mb-4">Templates Salvos no Supabase</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Templates Salvos */}
+                <div className="lg:col-span-1">
+                  <h3 className="font-bold text-lg mb-4">Templates Salvos</h3>
                   <div className="space-y-2">
                     {savedTemplates.length === 0 ? (
                       <p className="text-sm text-gray-500 italic">Nenhum template salvo</p>
                     ) : (
-                      savedTemplates.map(t => (
+                      savedTemplates.map((t) => (
                         <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                           <button 
-                            onClick={() => loadTemplate(t)}
+                            onClick={() => setCurrentTemplate(t.data)}
                             className="flex-1 text-left text-sm font-medium hover:text-green-700"
                           >
                             {t.name}
@@ -178,86 +795,24 @@ export default function App() {
                   </div>
                 </div>
                 
-                <div>
-                  <h3 className="font-bold text-lg mb-4">Configurar Template Atual</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Template</label>
-                      <input
-                        type="text"
-                        value={currentTemplate.name}
-                        onChange={(e) => setCurrentTemplate({...currentTemplate, name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        placeholder="Nome do template"
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Base Frente</label>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (event) => {
-                                setCurrentTemplate({
-                                  ...currentTemplate,
-                                  frenteImg: event.target?.result as string
-                                });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                          className="text-xs w-full" 
-                        />
-                        {currentTemplate.frenteImg && (
-                          <img 
-                            src={currentTemplate.frenteImg} 
-                            alt="Preview Frente" 
-                            className="mt-2 w-full h-32 object-cover rounded border"
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Base Verso</label>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onload = (event) => {
-                                setCurrentTemplate({
-                                  ...currentTemplate,
-                                  versoImg: event.target?.result as string
-                                });
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                          className="text-xs w-full" 
-                        />
-                        {currentTemplate.versoImg && (
-                          <img 
-                            src={currentTemplate.versoImg} 
-                            alt="Preview Verso" 
-                            className="mt-2 w-full h-32 object-cover rounded border"
-                          />
-                        )}
-                      </div>
-                    </div>
-                    
-                    <button 
-                      onClick={salvarTemplateAdmin}
-                      className="w-full bg-green-700 hover:bg-green-800 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
-                    >
-                      <Save size={16} /> Salvar Template no Supabase
-                    </button>
+                {/* Editor */}
+                <div className="lg:col-span-2">
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Template</label>
+                    <input
+                      type="text"
+                      value={currentTemplate.name}
+                      onChange={(e) => setCurrentTemplate({...currentTemplate, name: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="Nome do template"
+                    />
                   </div>
+                  
+                  <TemplateEditor
+                    template={currentTemplate}
+                    onTemplateChange={setCurrentTemplate}
+                    onSave={salvarTemplateAdmin}
+                  />
                 </div>
               </div>
             </div>
@@ -271,59 +826,42 @@ export default function App() {
               </p>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="font-bold text-lg mb-4">Selecionar Template</h3>
-                  <div className="space-y-2">
-                    {savedTemplates.length === 0 ? (
-                      <p className="text-sm text-gray-500 italic">Nenhum template disponível</p>
-                    ) : (
-                      savedTemplates.map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => loadTemplate(t)}
-                          className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-green-50 hover:border-green-500 border-2 border-transparent transition-all"
-                        >
-                          {t.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
+                <CarteirinhaGenerator
+                  templates={savedTemplates}
+                  selectedTemplate={selectedTemplateForGeneration}
+                  onTemplateSelect={setSelectedTemplateForGeneration}
+                />
                 
                 <div>
-                  <h3 className="font-bold text-lg mb-4">Dados da Carteirinha</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        placeholder="Digite o nome completo"
-                      />
+                  <h3 className="font-bold text-lg mb-4">Template Selecionado</h3>
+                  {selectedTemplateForGeneration ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-gray-50 rounded-lg">
+                        <h4 className="font-medium">{selectedTemplateForGeneration.name}</h4>
+                        <p className="text-sm text-gray-600">
+                          {selectedTemplateForGeneration.frenteCampos.length} campos configurados
+                        </p>
+                        <div className="text-xs text-gray-500 mt-2">
+                          Campos: {selectedTemplateForGeneration.frenteCampos.map(c => 
+                            `${c.name} (${c.type})`
+                          ).join(', ')}
+                        </div>
+                      </div>
+                      
+                      {selectedTemplateForGeneration.frenteImg && (
+                        <div>
+                          <h4 className="font-medium mb-2">Preview do Template</h4>
+                          <img
+                            src={selectedTemplateForGeneration.frenteImg}
+                            alt="Template Preview"
+                            className="w-full rounded border"
+                          />
+                        </div>
+                      )}
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        placeholder="000.000.000-00"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">OAB/UF</label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        placeholder="123456/SP"
-                      />
-                    </div>
-                    
-                    <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg">
-                      <Printer size={16} /> Gerar Carteirinha
-                    </button>
-                  </div>
+                  ) : (
+                    <p className="text-gray-500 text-sm">Selecione um template para visualizar</p>
+                  )}
                 </div>
               </div>
             </div>
