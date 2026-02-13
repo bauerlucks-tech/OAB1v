@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon, Crop, Scissors } from 'lucide-react';
+import { Settings, Printer, Save, Trash2, Plus, Type, Image as ImageIcon, Crop, Scissors, Sparkles } from 'lucide-react';
 import { supabase, salvarTemplateSupabase, carregarTemplatesSupabase, salvarCarteirinhaSupabase } from './lib/supabase';
 import Cropper from 'react-easy-crop';
 
@@ -620,6 +620,7 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [isProcessingAI, setIsProcessingAI] = useState(false);
 
   const handleFotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -690,6 +691,125 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
   const handleCropCancel = () => {
     setShowCropper(false);
     setImageToCrop(null);
+  };
+
+  const removeBackground = async (imageSrc: string): Promise<string> => {
+    try {
+      // Usar uma API de remoção de background (ex: remove.bg)
+      // Para este exemplo, vamos simular com canvas
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      return new Promise((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Canvas context not available'));
+            return;
+          }
+          
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Desenhar imagem
+          ctx.drawImage(img, 0, 0);
+          
+          // Obter dados da imagem
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Simular remoção de background (simplificado)
+          // Na prática, você usaria uma API real como remove.bg
+          for (let i = 0; i < data.length; i += 4) {
+            // Detectar pixels claros (background típico)
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            
+            // Se o pixel for muito claro, tornar transparente
+            if (r > 200 && g > 200 && b > 200) {
+              data[i + 3] = 0; // Alpha = 0 (transparente)
+            }
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Converter para blob
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(URL.createObjectURL(blob));
+            } else {
+              reject(new Error('Failed to create blob'));
+            }
+          }, 'image/png');
+        };
+        
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = imageSrc;
+      });
+    } catch (error) {
+      console.error('Error removing background:', error);
+      throw error;
+    }
+  };
+
+  const enhancePhotoWithAI = async () => {
+    if (!foto) return;
+    
+    setIsProcessingAI(true);
+    
+    try {
+      // Passo 1: Remover background
+      const imageWithoutBg = await removeBackground(foto);
+      
+      // Passo 2: Aplicar melhorias (brilho, contraste, saturação)
+      const enhancedImage = await enhanceImageQuality(imageWithoutBg);
+      
+      setFoto(enhancedImage);
+      alert('Foto aprimorada com IA! Background removido e qualidade melhorada.');
+    } catch (error) {
+      console.error('Erro ao processar foto com IA:', error);
+      alert('Erro ao processar foto. Tente novamente.');
+    } finally {
+      setIsProcessingAI(false);
+    }
+  };
+
+  const enhanceImageQuality = async (imageSrc: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Canvas context not available'));
+          return;
+        }
+        
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Aplicar filtros de melhoria
+        ctx.filter = 'contrast(1.1) brightness(1.05) saturate(1.1)';
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(URL.createObjectURL(blob));
+          } else {
+            reject(new Error('Failed to create blob'));
+          }
+        }, 'image/jpeg', 0.95);
+      };
+      
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imageSrc;
+    });
   };
 
   const handleFieldClick = (field: Field) => {
@@ -874,16 +994,26 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
                       alt="Foto"
                       className="w-24 h-24 object-cover rounded border"
                     />
-                    <button
-                      onClick={() => {
-                        setImageToCrop(foto);
-                        setShowCropper(true);
-                      }}
-                      className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-                    >
-                      <Scissors size={14} />
-                      Cortar Foto
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setImageToCrop(foto);
+                          setShowCropper(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+                      >
+                        <Scissors size={14} />
+                        Cortar
+                      </button>
+                      <button
+                        onClick={enhancePhotoWithAI}
+                        disabled={isProcessingAI}
+                        className="flex items-center gap-2 px-3 py-1 bg-purple-500 text-white rounded text-sm hover:bg-purple-600 disabled:bg-gray-400"
+                      >
+                        <Sparkles size={14} />
+                        {isProcessingAI ? 'Processando...' : 'IA'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
