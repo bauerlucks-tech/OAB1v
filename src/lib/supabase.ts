@@ -1,9 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Configuração para Desenvolvimento
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://izbgjeptqyzohlpjvkcn.supabase.co'
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6YmdqZXB0cXl6b2hscGp2a2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjEzMzMsImV4cCI6MjA4NjQ5NzMzM30.2PBHdHDtge3g5ev3PIPURjbL8kv4GUoGEezMPi6Jr0g'
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// Configuração para Produção (Vercel)
+const productionSupabaseUrl = 'https://seu-projeto.supabase.co'
+const productionSupabaseKey = 'sua-chave-anonima-producao'
+
+// Usar variáveis de produção quando em ambiente de produção
+const supabaseUrlFinal = import.meta.env.MODE === 'production' ? productionSupabaseUrl : supabaseUrl
+const supabaseKeyFinal = import.meta.env.MODE === 'production' ? productionSupabaseKey : supabaseKey
+
+export const supabase = createClient(supabaseUrlFinal, supabaseKeyFinal)
 
 // Tipos para o banco de dados
 export interface TemplateDB {
