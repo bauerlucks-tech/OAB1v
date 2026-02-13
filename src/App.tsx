@@ -493,10 +493,10 @@ function InteractivePreview({ template, dados, foto, onFieldClick, onFieldDataCh
                     : 'border-purple-500 bg-purple-100/50'
                 }`}
                 style={{
-                  left: `${(campo.x / 600) * 400}px`,
-                  top: `${(campo.y / 400) * 267}px`,
-                  width: `${(campo.w / 600) * 400}px`,
-                  height: `${(campo.h / 400) * 267}px`,
+                  left: `${(campo.x / 921) * 400}px`,
+                  top: `${(campo.y / 267) * 400}px`,
+                  width: `${(campo.w / 921) * 400}px`,
+                  height: `${(campo.h / 267) * 400}px`,
                   fontSize: campo.fontSize ? `${(campo.fontSize / 14) * 10}px` : '10px',
                   color: campo.color,
                   fontFamily: campo.fontFamily,
