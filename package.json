@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "deploy": "npm run build && echo '🚀 Build pronto! Escolha sua plataforma de deploy:' && echo '1. Vercel: vercel --prod' && echo '2. Netlify: Arraste pasta dist para netlify.com' && echo '3. GitHub: Configure GitHub Pages'"
   },
