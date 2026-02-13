@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build --mode production",
     "preview": "vite preview",
-    "deploy": "vercel --prod"
+    "deploy": "vercel --prod",
+    "build:prod": "NODE_ENV=production vite build --mode production"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
