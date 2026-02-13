@@ -1153,7 +1153,7 @@ export default function App() {
     frenteCampos: [],
     versoCampos: []
   });
-  const [selectedTemplateForGeneration, setSelectedTemplateForGeneration] = useState<TemplateData | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateData | null>(null);
 
   // Carregar dados do Supabase
   useEffect(() => {
@@ -1328,35 +1328,33 @@ export default function App() {
               </p>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <InteractivePreview
-                  template={selectedTemplate}
-                  dados={dados}
-                  foto={foto}
-                  onFieldClick={handleFieldClick}
-                  onFieldDataChange={handleFieldDataChange}
+                <CarteirinhaGenerator
+                  templates={savedTemplates}
+                  selectedTemplate={selectedTemplate}
+                  onTemplateSelect={setSelectedTemplate}
                 />
                 
                 <div>
                   <h3 className="font-bold text-lg mb-4">Template Selecionado</h3>
-                  {selectedTemplateForGeneration ? (
+                  {selectedTemplate ? (
                     <div className="space-y-4">
                       <div className="p-4 bg-gray-50 rounded-lg">
-                        <h4 className="font-medium">{selectedTemplateForGeneration.name}</h4>
+                        <h4 className="font-medium">{selectedTemplate.name}</h4>
                         <p className="text-sm text-gray-600">
-                          {selectedTemplateForGeneration.frenteCampos.length} campos configurados
+                          {selectedTemplate.frenteCampos.length} campos configurados
                         </p>
                         <div className="text-xs text-gray-500 mt-2">
-                          Campos: {selectedTemplateForGeneration.frenteCampos.map(c => 
+                          Campos: {selectedTemplate.frenteCampos.map(c => 
                             `${c.name} (${c.type})`
                           ).join(', ')}
                         </div>
                       </div>
                       
-                      {selectedTemplateForGeneration.frenteImg && (
+                      {selectedTemplate.frenteImg && (
                         <div>
                           <h4 className="font-medium mb-2">Preview do Template</h4>
                           <img
-                            src={selectedTemplateForGeneration.frenteImg}
+                            src={selectedTemplate.frenteImg}
                             alt="Template Preview"
                             className="w-full rounded border"
                           />
