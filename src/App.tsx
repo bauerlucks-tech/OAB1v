@@ -508,9 +508,9 @@ function InteractivePreview({ template, dados, foto, onFieldClick, onFieldDataCh
                 }}
               >
                 {campo.type === 'texto' ? (
-                  <span className="truncate px-1">{fieldValues[campo.id] || campo.name}</span>
+                  <span className="truncate px-1">{(fieldValues && fieldValues[campo.id]) || campo.name}</span>
                 ) : (
-                  fieldValues[campo.id] && (
+                  fieldValues && fieldValues[campo.id] && (
                     <img 
                       src={fieldValues[campo.id]} 
                       alt="Campo Foto" 
