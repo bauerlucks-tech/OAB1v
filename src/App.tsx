@@ -345,54 +345,49 @@ function CarteirinhaGenerator({
 
         {propSelectedTemplate && (
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
-              <input
-                type="text"
-                value={dados.nome}
-                onChange={(e) => setDados({ ...dados, nome: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Digite o nome completo"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
-              <input
-                type="text"
-                value={dados.cpf}
-                onChange={(e) => setDados({ ...dados, cpf: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="000.000.000-00"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">OAB</label>
-              <input
-                type="text"
-                value={dados.oab}
-                onChange={(e) => setDados({ ...dados, oab: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Número da OAB"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Foto 3x4</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFotoUpload}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-            </div>
+            <h3 className="font-medium text-gray-900">Preencha os dados</h3>
+            
+            {[...propSelectedTemplate.frenteCampos, ...propSelectedTemplate.versoCampos].map((campo) => (
+              <div key={campo.id}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {campo.type === 'foto' ? 'Foto 3x4' : campo.name}
+                </label>
+                
+                {campo.type === 'foto' ? (
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFotoUpload}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    />
+                    {foto && (
+                      <img 
+                        src={foto} 
+                        alt="Preview" 
+                        className="mt-2 h-20 w-20 object-cover rounded"
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={dados[campo.name as keyof DadosCarteirinha] || ''}
+                    onChange={(e) => setDados({ 
+                      ...dados, 
+                      [campo.name]: e.target.value 
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder={`Digite ${campo.name.toLowerCase()}`}
+                  />
+                )}
+              </div>
+            ))}
 
             <button
               onClick={handleGenerateCard}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 font-medium"
+              className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 font-medium"
             >
-              <Printer size={16} className="inline mr-2" />
               Gerar Carteirinha
             </button>
           </div>
