@@ -169,6 +169,10 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [imageScale, setImageScale] = useState(1);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [imageDragStart, setImageDragStart] = useState({ x: 0, y: 0 });
   const [activeTab, setActiveTab] = useState<'criar' | 'templates'>('criar');
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
 
@@ -344,6 +348,40 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   const resetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+    setImagePosition({ x: 0, y: 0 });
+    setImageScale(1);
+  };
+
+  const handleImageMouseDown = (e: React.MouseEvent) => {
+    if (e.shiftKey || e.button === 1) {
+      e.preventDefault();
+      setIsDraggingImage(true);
+      setImageDragStart({
+        x: e.clientX - imagePosition.x,
+        y: e.clientY - imagePosition.y
+      });
+    }
+  };
+
+  const handleImageMouseMove = (e: React.MouseEvent) => {
+    if (isDraggingImage) {
+      const newX = e.clientX - imageDragStart.x;
+      const newY = e.clientY - imageDragStart.y;
+      setImagePosition({ x: newX, y: newY });
+    }
+  };
+
+  const handleImageMouseUp = () => {
+    setIsDraggingImage(false);
+  };
+
+  const handleImageWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.min(Math.max(0.1, imageScale * delta), 5);
+      setImageScale(newScale);
+    }
   };
 
   const handleMouseDown = (fieldId: string, e: React.MouseEvent) => {
@@ -524,14 +562,22 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                   <h3 className="font-bold text-lg">Editor de Campos - {activeSide === 'frente' ? 'Frente' : 'Verso'}</h3>
                   <div className="flex gap-2">
                     <div className="flex items-center gap-2 bg-gray-100 rounded px-2 py-1">
-                      <span className="text-xs font-medium">Zoom:</span>
-                      <span className="text-xs">{Math.round(zoom * 100)}%</span>
+                      <span className="text-xs font-medium">Zoom Imagem:</span>
+                      <span className="text-xs">{Math.round(imageScale * 100)}%</span>
                       <button
                         onClick={resetView}
                         className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
                       >
                         Reset
                       </button>
+                    </div>
+                    <div className="flex items-center gap-2 bg-amber-50 rounded px-2 py-1">
+                      <Settings size={12} className="text-amber-600" />
+                      <span className="text-xs text-amber-700">Shift+Arraste para mover imagem</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-blue-50 rounded px-2 py-1">
+                      <Settings size={12} className="text-blue-600" />
+                      <span className="text-xs text-blue-700">Ctrl+Scroll para zoom imagem</span>
                     </div>
                     <select
                       value={fieldType}
@@ -556,7 +602,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                 </div>
                 <div
                   ref={canvasRef}
-                  className={`relative border-2 border-gray-300 rounded-lg overflow-hidden ${
+                  className={`relative border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-100 ${
                     isAddingField ? 'cursor-crosshair' : isPanning ? 'cursor-move' : 'cursor-default'
                   }`}
                   onClick={handleCanvasClick}
@@ -567,22 +613,45 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                   onMouseLeave={handleCanvasMouseUp}
                   style={{
                     width: '100%',
-                    height: '500px'
+                    height: '600px'
                   }}
                 >
-                  {/* Imagem de fundo com zoom */}
+                  {/* Container da imagem com zoom e movimento */}
                   <div
+                    className="absolute inset-0"
                     style={{
-                      backgroundImage: `url(${activeSide === 'frente' ? template.frenteImg : template.versoImg})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
+                      overflow: 'hidden',
                       width: '100%',
-                      height: '100%',
-                      transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                      transformOrigin: 'top left'
+                      height: '100%'
                     }}
                   >
-                    {/* Campos aqui... */}
+                    {/* Imagem de fundo */}
+                    {(activeSide === 'frente' ? template.frenteImg : template.versoImg) && (
+                      <img
+                        src={activeSide === 'frente' ? template.frenteImg || '' : template.versoImg || ''}
+                        alt={`Imagem ${activeSide === 'frente' ? 'Frente' : 'Verso'}`}
+                        className="absolute"
+                        style={{
+                          left: `${imagePosition.x}px`,
+                          top: `${imagePosition.y}px`,
+                          transform: `scale(${imageScale})`,
+                          transformOrigin: 'top left',
+                          cursor: isDraggingImage ? 'grabbing' : 'grab',
+                          maxWidth: 'none',
+                          maxHeight: 'none'
+                        }}
+                        onMouseDown={handleImageMouseDown}
+                        onMouseMove={handleImageMouseMove}
+                        onMouseUp={handleImageMouseUp}
+                        onMouseLeave={handleImageMouseUp}
+                        onWheel={handleImageWheel}
+                        draggable={false}
+                      />
+                    )}
+                  </div>
+
+                  {/* Campos sobre a imagem */}
+                  <div className="absolute inset-0">
                     {(activeSide === 'frente' ? template.frenteCampos : template.versoCampos).map((field) => (
                       <div
                         key={field.id}
