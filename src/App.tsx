@@ -576,16 +576,107 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                   onMouseUp={handleCanvasMouseUp}
                   onMouseLeave={handleCanvasMouseUp}
                   style={{
-                    backgroundImage: `url(${activeSide === 'frente' ? template.frenteImg : template.versoImg})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
                     width: '100%',
-                    height: '500px',
-                    transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
-                    transformOrigin: 'top left'
+                    height: '500px'
                   }}
                 >
-                  {/* Campos aqui... */}
+                  {/* Imagem de fundo com zoom */}
+                  <div
+                    style={{
+                      backgroundImage: `url(${activeSide === 'frente' ? template.frenteImg : template.versoImg})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      width: '100%',
+                      height: '100%',
+                      transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                      transformOrigin: 'top left'
+                    }}
+                  >
+                    {/* Campos aqui... */}
+                    {(activeSide === 'frente' ? template.frenteCampos : template.versoCampos).map((field) => (
+                      <div
+                        key={field.id}
+                        className={`absolute border-2 cursor-move z-10 transition-all duration-200 hover:border-amber-400 hover:shadow-lg ${
+                          selectedField?.id === field.id
+                            ? 'border-amber-500 bg-amber-100/50 shadow-xl'
+                            : field.type === 'texto'
+                            ? 'border-blue-500 bg-blue-100/50'
+                            : 'border-purple-500 bg-purple-100/50'
+                        }`}
+                        style={{
+                          left: `${field.x}px`,
+                          top: `${field.y}px`,
+                          width: `${Math.max(field.w, 60)}px`,
+                          height: `${Math.max(field.h, 30)}px`,
+                          minWidth: '60px',
+                          minHeight: '30px'
+                        }}
+                        onMouseDown={(e) => handleMouseDown(field.id, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedField(field);
+                        }}
+                      >
+                        <div className="flex items-center justify-center h-full text-xs p-1">
+                          {field.type === 'texto' ? (
+                            <Type size={12} />
+                          ) : (
+                            <ImageIcon size={12} />
+                          )}
+                          <span className="ml-1 truncate">{field.name}</span>
+                        </div>
+                        
+                        {/* Handles de Redimensionamento */}
+                        {selectedField?.id === field.id && (
+                          <>
+                            {/* Cantos */}
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-nw-resize"
+                              style={{ top: '-4px', left: '-4px' }}
+                              data-resize-handle="top-left"
+                            />
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-ne-resize"
+                              style={{ top: '-4px', right: '-4px' }}
+                              data-resize-handle="top-right"
+                            />
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-sw-resize"
+                              style={{ bottom: '-4px', left: '-4px' }}
+                              data-resize-handle="bottom-left"
+                            />
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-se-resize"
+                              style={{ bottom: '-4px', right: '-4px' }}
+                              data-resize-handle="bottom-right"
+                            />
+                            
+                            {/* Bordas */}
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-n-resize"
+                              style={{ top: '-4px', left: '50%', transform: 'translateX(-50%)' }}
+                              data-resize-handle="top"
+                            />
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-s-resize"
+                              style={{ bottom: '-4px', left: '50%', transform: 'translateX(-50%)' }}
+                              data-resize-handle="bottom"
+                            />
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-w-resize"
+                              style={{ left: '-4px', top: '50%', transform: 'translateY(-50%)' }}
+                              data-resize-handle="left"
+                            />
+                            <div
+                              className="absolute w-2 h-2 bg-amber-500 border border-white cursor-e-resize"
+                              style={{ right: '-4px', top: '50%', transform: 'translateY(-50%)' }}
+                              data-resize-handle="right"
+                            />
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
