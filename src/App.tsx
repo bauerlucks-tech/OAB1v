@@ -1171,40 +1171,9 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
         } else if (campo.type === 'foto') {
           novoPreview[campo.id] = foto || '';
         }
-      });
-      setPreviewData(novoPreview);
-    }
-  }, [selectedTemplate, dados, foto]);
 
   return (
     <div className="space-y-6">
-      {/* Seleção de Template */}
-      <div>
-        <h3 className="font-bold text-lg mb-4">Selecionar Template</h3>
-        <div className="space-y-2">
-          {templates.length === 0 ? (
-            <p className="text-sm text-gray-500 italic">Nenhum template disponível</p>
-          ) : (
-            templates.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => onTemplateSelect(t.data)}
-                className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                  selectedTemplate?.id === t.data.id
-                    ? 'bg-green-50 border-green-500'
-                    : 'bg-gray-50 border-transparent hover:bg-green-50 hover:border-green-500'
-                }`}
-              >
-                <div className="font-medium">{t.name}</div>
-                <div className="text-xs text-gray-500">
-                  {t.data.frenteCampos.length} campos configurados
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      </div>
-
       {/* Dados da Carteirinha */}
       {selectedTemplate && (
         <div>
