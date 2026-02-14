@@ -261,8 +261,7 @@ function CarteirinhaGenerator({
   onTemplateSelect?: (template: TemplateData) => void;
   onGenerate?: (template: TemplateData, dados: DadosCarteirinha) => Promise<void>;
 }) {
-  const [internalSelectedTemplate, setInternalSelectedTemplate] = useState<TemplateData | null>(propSelectedTemplate);
-  const [dados, setDados] = useState<DadosCarteirinha>({
+    const [dados, setDados] = useState<DadosCarteirinha>({
     nome: '',
     cpf: '',
     oab: ''
@@ -270,10 +269,10 @@ function CarteirinhaGenerator({
   const [foto, setFoto] = useState<string | null>(null);
 
   const handleGenerateCard = async () => {
-    if (!internalSelectedTemplate || !onGenerate) return;
+    if (!propSelectedTemplate || !onGenerate) return;
     
     try {
-      await onGenerate(internalSelectedTemplate, dados);
+      await onGenerate(propSelectedTemplate, dados);
       alert('Carteirinha gerada com sucesso!');
     } catch (error) {
       console.error('Erro ao gerar carteirinha:', error);
@@ -314,11 +313,11 @@ function CarteirinhaGenerator({
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Template Selecionado</label>
-          {selectedTemplate ? (
+          {propSelectedTemplate ? (
             <div className="border rounded-lg p-4 bg-green-50">
-              <p className="font-medium">{selectedTemplate.name}</p>
+              <p className="font-medium">{propSelectedTemplate.name}</p>
               <button
-                onClick={() => setSelectedTemplate(null)}
+                onClick={() => onTemplateSelect && onTemplateSelect(null)}
                 className="text-red-600 hover:text-red-700 text-sm mt-2"
               >
                 Alterar Template
