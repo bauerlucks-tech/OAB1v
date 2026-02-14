@@ -470,7 +470,8 @@ export default function App() {
   const handleGenerateCard = async (template: TemplateData, dados: DadosCarteirinha) => {
     try {
       await salvarCarteirinhaSupabase({
-        ...template,
+        nome: template.name,
+        templateId: template.id,
         dados,
         templateName: template.name,
         fotos: dados.foto ? [dados.foto] : [],
