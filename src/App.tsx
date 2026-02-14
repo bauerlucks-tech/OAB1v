@@ -697,7 +697,9 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
             <Save size={16} /> Salvar Template no Supabase
           </button>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'templates' && (
         <div className="space-y-4">
           <h3 className="font-bold text-lg">Templates Salvos</h3>
           {savedTemplates.length === 0 ? (
