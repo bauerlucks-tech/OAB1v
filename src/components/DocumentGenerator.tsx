@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Download, FileText, Camera, Type } from 'lucide-react';
 import { Template, GeneratedFieldValue } from '../types/template';
+import { exportDocumentToPng, exportDocumentBothSides } from '../utils/exportToPng';
 
 interface Props {
   template: Template;
@@ -152,15 +153,32 @@ export default function DocumentGenerator({ template, onSave }: Props) {
     }
   };
 
-  const handleDownload = (side: 'front' | 'back') => {
-    const canvas = side === 'front' ? frontCanvasRef.current : backCanvasRef.current;
-    if (!canvas) return;
+  const handleExportFront = async () => {
+  try {
+    await exportDocumentToPng(template, formData, 'front');
+  } catch (error) {
+    console.error('Erro ao exportar frente:', error);
+    alert('Erro ao exportar frente. Tente novamente.');
+  }
+};
 
-    const link = document.createElement('a');
-    link.download = `documento-${template.name}-${side}-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  };
+const handleExportBack = async () => {
+  try {
+    await exportDocumentToPng(template, formData, 'back');
+  } catch (error) {
+    console.error('Erro ao exportar verso:', error);
+    alert('Erro ao exportar verso. Tente novamente.');
+  }
+};
+
+const handleExportBoth = async () => {
+  try {
+    await exportDocumentBothSides(template, formData);
+  } catch (error) {
+    console.error('Erro ao exportar ambos os lados:', error);
+    alert('Erro ao exportar ambos os lados. Tente novamente.');
+  }
+};
 
   const getFieldValue = (fieldId: string): string | File => {
     const field = formData.find(f => f.fieldId === fieldId);
@@ -298,13 +316,29 @@ export default function DocumentGenerator({ template, onSave }: Props) {
                 Preview - {currentSide === 'front' ? 'Frente' : 'Verso'}
               </h2>
               
+              <div className="flex gap-2">
               <button
-                onClick={() => handleDownload(currentSide)}
+                onClick={handleExportFront}
                 className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded flex items-center gap-1 text-sm"
               >
                 <Download size={14} />
-                Baixar
+                Exportar Frente
               </button>
+              <button
+                onClick={handleExportBack}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded flex items-center gap-1 text-sm"
+              >
+                <Download size={14} />
+                Exportar Verso
+              </button>
+              <button
+                onClick={handleExportBoth}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center gap-1 text-sm"
+              >
+                <Download size={14} />
+                Exportar Ambos
+              </button>
+            </div>
             </div>
             
             <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
