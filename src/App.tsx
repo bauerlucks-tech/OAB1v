@@ -4,6 +4,7 @@ import { Template } from './types/template';
 import TemplateEditorAdvanced from './components/TemplateEditorAdvanced';
 import DocumentGenerator from './components/DocumentGenerator';
 import { getAllTemplates, saveTemplate, getTemplateById, deleteTemplate } from './services/templateService';
+import { validateTemplate } from './utils/templateValidation';
 
 type View = 'list' | 'editor' | 'generator' | 'document';
 
@@ -114,6 +115,13 @@ function App() {
 
   // Salvar template
   const handleSaveTemplate = async (template: Template) => {
+    // Validar template antes de salvar
+    const validation = validateTemplate(template);
+    if (!validation.isValid) {
+      alert('Template inválido:\n' + validation.errors.join('\n'));
+      return;
+    }
+
     try {
       const savedTemplate = await saveTemplate(template);
       setSelectedTemplate(savedTemplate);
@@ -121,7 +129,7 @@ function App() {
       return savedTemplate;
     } catch (error) {
       console.error('Erro ao salvar template:', error);
-      alert('Erro ao salvar template');
+      alert('Erro ao salvar template. Tente novamente.');
       throw error;
     }
   };
