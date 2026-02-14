@@ -212,10 +212,29 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64 = event.target?.result as string;
-        onTemplateChange({
-          ...template,
-          [side === 'frente' ? 'frenteImg' : 'versoImg']: base64
-        });
+        
+        // Limpar a outra imagem se existir (permitir apenas uma por vez)
+        if (side === 'frente') {
+          onTemplateChange({
+            ...template,
+            frenteImg: base64,
+            versoImg: null,
+            versoCampos: [] // Limpar campos do verso também
+          });
+          setActiveSide('frente'); // Mudar para o lado ativo
+        } else {
+          onTemplateChange({
+            ...template,
+            versoImg: base64,
+            frenteImg: null,
+            frenteCampos: [] // Limpar campos da frente também
+          });
+          setActiveSide('verso'); // Mudar para o lado ativo
+        }
+        
+        // Resetar posição e zoom da imagem
+        setImagePosition({ x: 0, y: 0 });
+        setImageScale(1);
       };
       reader.readAsDataURL(file);
     }
@@ -491,39 +510,55 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
         <div className="space-y-6">
           {/* Campos do template serão exibidos aqui */}
 
-          {/* Upload de Imagens */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Base Frente</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageUpload('frente', e)}
-                className="text-xs w-full"
-              />
-              {template.frenteImg && (
-                <img
-                  src={template.frenteImg}
-                  alt="Frente"
-                  className="mt-2 w-full h-32 object-cover rounded border"
+          {/* Upload de Imagem - Apenas uma por vez */}
+          <div className="max-w-md mx-auto">
+            <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
+              Importar Imagem do Template
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Frente</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload('frente', e)}
+                  className="text-xs w-full"
+                  disabled={!!template.versoImg}
                 />
-              )}
+                {template.frenteImg && (
+                  <div className="mt-2">
+                    <img
+                      src={template.frenteImg}
+                      alt="Frente"
+                      className="w-full h-24 object-cover rounded border"
+                    />
+                    <p className="text-xs text-green-600 mt-1">✓ Frente carregada</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Verso</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload('verso', e)}
+                  className="text-xs w-full"
+                  disabled={!!template.frenteImg}
+                />
+                {template.versoImg && (
+                  <div className="mt-2">
+                    <img
+                      src={template.versoImg}
+                      alt="Verso"
+                      className="w-full h-24 object-cover rounded border"
+                    />
+                    <p className="text-xs text-green-600 mt-1">✓ Verso carregado</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Base Verso</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageUpload('verso', e)}
-                className="text-xs w-full"
-              />
-              {template.versoImg && (
-                <img
-                  src={template.versoImg}
-                  alt="Verso"
-                  className="mt-2 w-full h-32 object-cover rounded border"
-                />
-              )}
+            <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700 text-center">
+              ℹ️ Apenas uma imagem por vez (frente ou verso)
             </div>
           </div>
 
