@@ -118,9 +118,13 @@ export const saveCard = async (
   }
 
   try {
+    // Gerar um nome para a carteirinha baseado no template e data
+    const cardName = `${templateName} - ${new Date().toLocaleDateString('pt-BR')}`;
+    
     const { data, error } = await supabase
       .from('carteirinhas')
       .insert({
+        nome: cardName, // Campo obrigatório
         template_id: templateId,
         template_name: templateName,
         dados: dados,
