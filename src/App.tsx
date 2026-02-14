@@ -695,7 +695,17 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                   </div>
 
                   {/* Campos sobre a imagem */}
-                  <div className="absolute inset-0">
+                  <div 
+                    className="absolute"
+                    style={{
+                      left: `${imagePosition.x}px`,
+                      top: `${imagePosition.y}px`,
+                      transform: `scale(${imageScale})`,
+                      transformOrigin: 'top left',
+                      width: '100%',
+                      height: '100%'
+                    }}
+                  >
                     {(activeSide === 'frente' ? template.frenteCampos : template.versoCampos).map((field) => (
                       <div
                         key={field.id}
