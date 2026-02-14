@@ -1242,8 +1242,8 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
   };
 
   useEffect(() => {
+    const novoPreview: Record<string, string> = {};
     if (selectedTemplate) {
-      const novoPreview: Record<string, string> = {};
       selectedTemplate.frenteCampos.forEach(campo => {
         if (campo.type === 'texto') {
           switch (campo.name.toLowerCase()) {
@@ -1265,7 +1265,7 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
       });
     }
     setFieldValues(novoPreview);
-  }, [template, dados, foto]);
+  }, [selectedTemplate, dados, foto]);
 
   return (
     <div className="space-y-6">
