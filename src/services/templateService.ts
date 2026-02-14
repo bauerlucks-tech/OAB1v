@@ -1,4 +1,4 @@
-import { Template, TemplateDB } from '../types/template';
+import { Template, TemplateDB, DBField } from '../types/template';
 import { supabase } from '../lib/supabase';
 
 // Converter do app para o DB
@@ -33,7 +33,7 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   backImageUrl: dbTemplate.backImageUrl,
   width: dbTemplate.width,
   height: dbTemplate.height,
-  fields: dbTemplate.fields.map((field: any) => ({
+    fields: dbTemplate.fields.map((field: DBField) => ({
     id: field.id,
     name: field.name,
     type: field.type,

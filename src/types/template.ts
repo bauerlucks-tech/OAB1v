@@ -37,6 +37,20 @@ export interface GeneratedFieldValue {
   value: string | File;
 }
 
+// Tipo para campos no formato do banco de dados
+export interface DBField {
+  id: string;
+  name: string;
+  type: 'text' | 'photo';
+  side: 'front' | 'back';
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  required: boolean;
+  locked?: boolean;
+}
+
 // Para compatibilidade com Supabase - ESTRUTURA REAL DO BANCO
 export interface TemplateDB {
   id: string;
@@ -45,18 +59,7 @@ export interface TemplateDB {
   backImageUrl: string;
   width: number;
   height: number;
-  fields: Array<{
-    id: string;
-    name: string;
-    type: 'text' | 'photo';
-    side: 'front' | 'back';
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    required: boolean;
-    locked?: boolean;
-  }>;
+  fields: DBField[];
   created_at: string;
   updated_at: string;
 }

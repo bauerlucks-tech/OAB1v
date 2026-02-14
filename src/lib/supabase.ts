@@ -1,27 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Configuração para Desenvolvimento
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://izbgjeptqyzohlpjvkcn.supabase.co'
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6YmdqZXB0cXl6b2hscGp2a2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjEzMzMsImV4cCI6MjA4NjQ5NzMzM30.2PBHdHDtge3g5ev3PIPURjbL8kv4GUoGEezMPi6Jr0g'
+// Configuração do Supabase via variáveis de ambiente
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Configuração para Produção (Vercel)
-const productionSupabaseUrl = 'https://izbgjeptqyzohlpjvkcn.supabase.co'
-const productionSupabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6YmdqZXB0cXl6b2hscGp2a2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjEzMzMsImV4cCI6MjA4NjQ5NzMzM30.2PBHdHDtge3g5ev3PIPURjbL8kv4GUoGEezMPi6Jr0g'
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Erro: VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY devem estar configurados no arquivo .env')
+}
 
-// Usar variáveis de produção quando em ambiente de produção
-const supabaseUrlFinal = import.meta.env.MODE === 'production' ? productionSupabaseUrl : supabaseUrl
-const supabaseKeyFinal = import.meta.env.MODE === 'production' ? productionSupabaseKey : supabaseKey
-
-export const supabase = createClient(supabaseUrlFinal, supabaseKeyFinal)
+export const supabase = createClient(
+  supabaseUrl || '',
+  supabaseKey || ''
+)
 
 // Tipos para o banco de dados
 export interface TemplateDB {
   id: string
   name: string
-  data: any // TemplateData completo
+  data: Record<string, unknown> // TemplateData completo
   frente_img: string // Base64 da imagem
   verso_img: string // Base64 da imagem
-  campos: any // Campos com configurações completas
+  campos: Record<string, unknown> // Campos com configurações completas
   created_at: string
   updated_at: string
 }
@@ -31,8 +30,8 @@ export interface CarteirinhaDB {
   nome: string
   template_id: string
   template_name: string
-  dados: any // Dados preenchidos
-  fotos: any // Fotos em base64
+  dados: Record<string, unknown> // Dados preenchidos
+  fotos: string[] // Fotos em base64
   frente_url: string // Imagem gerada
   verso_url: string // Imagem gerada
   created_at: string
@@ -40,8 +39,31 @@ export interface CarteirinhaDB {
   emitida_em: string
 }
 
+// Tipos para as funções
+interface TemplateInput {
+  name: string;
+  [key: string]: unknown;
+}
+
+interface CarteirinhaInput {
+  nome: string;
+  templateId?: string;
+  templateName?: string;
+  dados?: Record<string, unknown>;
+  fotos?: string[];
+  frenteUrl?: string;
+  versoUrl?: string;
+  emitidaEm?: string;
+  [key: string]: unknown;
+}
+
 // Funções de Templates
-export const salvarTemplateSupabase = async (template: any, frenteImg: string, versoImg: string, campos: any) => {
+export const salvarTemplateSupabase = async (
+  template: TemplateInput,
+  frenteImg: string,
+  versoImg: string,
+  campos: Record<string, unknown>[]
+) => {
   try {
     const { data, error } = await supabase
       .from('templates')
@@ -88,7 +110,13 @@ export const carregarTemplatesSupabase = async () => {
   }
 }
 
-export const atualizarTemplateSupabase = async (id: string, template: any, frenteImg: string, versoImg: string, campos: any) => {
+export const atualizarTemplateSupabase = async (
+  id: string,
+  template: TemplateInput,
+  frenteImg: string,
+  versoImg: string,
+  campos: Record<string, unknown>[]
+) => {
   try {
     const { data, error } = await supabase
       .from('templates')
@@ -136,7 +164,7 @@ export const deletarTemplateSupabase = async (id: string) => {
 }
 
 // Funções de Carteirinhas
-export const salvarCarteirinhaSupabase = async (carteirinha: any) => {
+export const salvarCarteirinhaSupabase = async (carteirinha: CarteirinhaInput) => {
   try {
     const { data, error } = await supabase
       .from('carteirinhas')
