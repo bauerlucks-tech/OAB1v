@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { exportDocumentToPng, exportDocumentBothSides } from '../utils/exportToPng';
 import { Template, GeneratedFieldValue } from '../types/template';
 
@@ -110,7 +110,7 @@ describe('Exportação PNG', () => {
     // Mock para exportDocumentToPng
     vi.mock('../utils/exportToPng', () => ({
       exportDocumentToPng: vi.fn().mockResolvedValue(undefined),
-      exportDocumentBothSides: vi.fn().mockImplementation(async (template, formData) => {
+      exportDocumentBothSides: vi.fn().mockImplementation(async () => {
         // Exportar frente
         await new Promise(resolve => setTimeout(resolve, 100));
         // Exportar verso

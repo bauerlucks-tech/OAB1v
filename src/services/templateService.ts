@@ -58,7 +58,17 @@ export const getAllTemplates = async (): Promise<Template[]> => {
   try {
     const { data, error } = await supabase
       .from('templates')
-      .select('id, name, frontImageUrl, backImageUrl, width, height, fields, created_at, updated_at')
+      .select(`
+        id,
+        name,
+        frontImageUrl,
+        backImageUrl,
+        width,
+        height,
+        fields,
+        created_at,
+        updated_at
+      `)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -86,7 +96,17 @@ export const getTemplateById = async (id: string): Promise<Template> => {
   try {
     const { data, error } = await supabase
       .from('templates')
-      .select('id, name, frontImageUrl, backImageUrl, width, height, fields, created_at, updated_at')
+      .select(`
+        id,
+        name,
+        frontImageUrl,
+        backImageUrl,
+        width,
+        height,
+        fields,
+        created_at,
+        updated_at
+      `)
       .eq('id', id)
       .single();
 

@@ -76,8 +76,8 @@ describe('Validação de Template', () => {
       fields: [{
         id: 'field-1',
         name: 'Foto',
-        type: 'photo',
-        side: 'back',
+        type: 'photo' as TemplateFieldType,
+        side: 'back' as TemplateSide,
         x: 200,
         y: 200,
         width: 150,
@@ -99,8 +99,8 @@ describe('Validação de Template', () => {
         {
           id: 'field-3',
           name: 'Foto 2',
-          type: 'photo',
-          side: 'front',
+          type: 'photo' as TemplateFieldType,
+          side: 'front' as TemplateSide,
           x: 300,
           y: 300,
           width: 150,
@@ -211,8 +211,8 @@ describe('Validação de Template', () => {
         {
           id: 'field-1',
           name: '', // Nome vazio
-          type: 'text',
-          side: 'front',
+          type: 'text' as TemplateFieldType,
+          side: 'front' as TemplateSide,
           x: 100,
           y: 100,
           width: 200,
