@@ -53,6 +53,15 @@ export interface TemplateDB {
       w: number;
       h: number;
     }>;
+    versoCampos: Array<{
+      id: string;
+      name: string;
+      type: 'texto' | 'foto';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }>;
   };
   frente_img: string;
   verso_img: string | null;

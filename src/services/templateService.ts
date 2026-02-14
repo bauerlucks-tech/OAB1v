@@ -39,6 +39,15 @@ const toDBFormat = (template: Template) => ({
       y: field.y,
       w: field.width,
       h: field.height
+    })),
+    versoCampos: template.backFields.map(field => ({
+      id: field.id,
+      name: field.label,
+      type: field.type === 'photo' ? 'foto' : 'texto',
+      x: field.x,
+      y: field.y,
+      w: field.width,
+      h: field.height
     }))
   }
 });
@@ -58,7 +67,15 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
     height: field.h,
     label: field.name
   })),
-  backFields: [], // Back fields vazio por enquanto
+  backFields: (dbTemplate.data.versoCampos || []).map(field => ({
+    id: field.id,
+    type: field.type === 'foto' ? 'photo' : 'text',
+    x: field.x,
+    y: field.y,
+    width: field.w,
+    height: field.h,
+    label: field.name
+  })),
   createdAt: new Date(dbTemplate.created_at),
   updatedAt: new Date(dbTemplate.updated_at)
 });
