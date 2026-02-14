@@ -70,25 +70,6 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   updatedAt: new Date(dbTemplate.updated_at)
 });
 
-// Tipo parcial para resposta da query otimizada
-interface TemplateDBPartial {
-  id: string;
-  name: string;
-  frente_img: string;
-  verso_img: string | null;
-  campos: Array<{
-    id: string;
-    name: string;
-    type: 'texto' | 'foto';
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  }>;
-  created_at: string;
-  updated_at: string;
-}
-
 // Buscar todos os templates
 export const getAllTemplates = async (): Promise<Template[]> => {
   if (!supabase) {
@@ -98,21 +79,11 @@ export const getAllTemplates = async (): Promise<Template[]> => {
   try {
     const { data, error } = await supabase
       .from('templates')
-      .select('id, name, frente_img, verso_img, campos, created_at, updated_at')
+      .select('id, name, frente_img, verso_img, campos, data, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data.map((dbTemplate: TemplateDBPartial) => fromDBFormat({
-      ...dbTemplate,
-      data: {
-        id: dbTemplate.id,
-        name: dbTemplate.name,
-        frenteImg: dbTemplate.frente_img,
-        versoImg: dbTemplate.verso_img,
-        campos: dbTemplate.campos,
-        versoCampos: [] // Adicionado para compatibilidade
-      }
-    }));
+    return data.map((dbTemplate: TemplateDB) => fromDBFormat(dbTemplate));
   } catch (error) {
     console.error('Erro ao buscar templates:', error);
     throw error;

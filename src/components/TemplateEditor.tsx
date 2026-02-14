@@ -248,11 +248,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ onSave }) => {
       console.log('Template salvo com sucesso:', savedTemplate);
       alert('Template salvo com sucesso!');
       
-      // Opcional: redirecionar para a lista de templates
-      if (confirm('Template salvo com sucesso! Deseja voltar para a lista de templates?')) {
-        if (onSave) {
-          onSave();
-        }
+      // Sempre chamar onSave() após sucesso
+      if (onSave) {
+        onSave();
       }
       
     } catch (error: any) {
