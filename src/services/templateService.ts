@@ -15,20 +15,19 @@ export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, s
 // Converter do formato do app para o DB
 const toDBFormat = (template: Template): Omit<TemplateDB, 'id' | 'created_at' | 'updated_at'> => ({
   name: template.name,
-  front_image: template.frontImage,
-  back_image: template.backImage,
-  front_fields: template.frontFields,
-  back_fields: template.backFields
+  frente_img: template.frontImage,
+  verso_img: template.backImage,
+  campos: template.frontFields // Combinar front e back fields em um array só
 });
 
 // Converter do DB para o formato do app
 const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   id: dbTemplate.id,
   name: dbTemplate.name,
-  frontImage: dbTemplate.front_image,
-  backImage: dbTemplate.back_image,
-  frontFields: dbTemplate.front_fields,
-  backFields: dbTemplate.back_fields,
+  frontImage: dbTemplate.frente_img,
+  backImage: dbTemplate.verso_img,
+  frontFields: dbTemplate.campos || [], // Usar campos como frontFields
+  backFields: [], // Back fields vazio por enquanto
   createdAt: new Date(dbTemplate.created_at),
   updatedAt: new Date(dbTemplate.updated_at)
 });

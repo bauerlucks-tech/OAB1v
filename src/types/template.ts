@@ -39,10 +39,9 @@ export type Side = 'front' | 'back';
 export interface TemplateDB {
   id: string;
   name: string;
-  front_image: string;
-  back_image: string | null;
-  front_fields: Field[];
-  back_fields: Field[];
+  frente_img: string;
+  verso_img: string | null;
+  campos: Field[];
   created_at: string;
   updated_at: string;
 }
