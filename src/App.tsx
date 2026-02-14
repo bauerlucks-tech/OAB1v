@@ -126,6 +126,7 @@ function TemplateEditor({
       <div className="flex justify-center mb-4">
         <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
           <button
+            type="button"
             onClick={() => setActiveSide('frente')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
               activeSide === 'frente' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
@@ -134,6 +135,7 @@ function TemplateEditor({
             Frente
           </button>
           <button
+            type="button"
             onClick={() => setActiveSide('verso')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
               activeSide === 'verso' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-900'
@@ -162,6 +164,7 @@ function TemplateEditor({
             <h3 className="text-lg font-bold">Editor de Campos</h3>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setIsAddingField(false)}
                 className={`px-3 py-2 rounded text-sm font-medium ${
                   !isAddingField ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
@@ -171,6 +174,7 @@ function TemplateEditor({
                 Mover
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setIsAddingField(true);
                   setFieldType('texto');
@@ -183,6 +187,7 @@ function TemplateEditor({
                 Adicionar Texto
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setIsAddingField(true);
                   setFieldType('foto');
@@ -236,6 +241,7 @@ function TemplateEditor({
 
           <div className="mt-4 flex justify-center">
             <button
+              type="button"
               onClick={onSave}
               className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
             >
@@ -295,15 +301,15 @@ function CarteirinhaGenerator({
     <div className="space-y-6">
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
-          <button className="py-2 px-1 border-b-2 font-medium text-sm border-green-500 text-green-600">
+          <button type="button" className="py-2 px-1 border-b-2 font-medium text-sm border-green-500 text-green-600">
             <Plus size={16} className="inline mr-2" />
             Criação
           </button>
-          <button className="py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+          <button type="button" className="py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
             <Save size={16} className="inline mr-2" />
             Salvamento
           </button>
-          <button className="py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+          <button type="button" className="py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
             <Printer size={16} className="inline mr-2" />
             Geração
           </button>
@@ -317,6 +323,7 @@ function CarteirinhaGenerator({
             <div className="border rounded-lg p-4 bg-green-50">
               <p className="font-medium">{propSelectedTemplate.name}</p>
               <button
+                type="button"
                 onClick={() => onTemplateSelect && onTemplateSelect(null)}
                 className="text-red-600 hover:text-red-700 text-sm mt-2"
               >
@@ -327,6 +334,7 @@ function CarteirinhaGenerator({
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <p className="text-gray-500">Nenhum template selecionado</p>
               <button
+                type="button"
                 onClick={() => {
                   if (templates.length > 0) {
                     setSelectedTemplate(templates[0].data);
@@ -385,6 +393,7 @@ function CarteirinhaGenerator({
             ))}
 
             <button
+              type="button"
               onClick={handleGenerateCard}
               className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 font-medium"
             >
@@ -497,6 +506,7 @@ export default function App() {
             </div>
             <nav className="flex space-x-4">
               <button 
+                type="button"
                 onClick={() => setMode('admin')}
                 className={`px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all ${
                   mode === 'admin' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
@@ -506,6 +516,7 @@ export default function App() {
                 Gerar Templates
               </button>
               <button 
+                type="button"
                 onClick={() => setMode('user')}
                 className={`px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all ${
                   mode === 'user' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
@@ -550,6 +561,7 @@ export default function App() {
                         </div>
                         <div className="flex space-x-2">
                           <button 
+                            type="button"
                             onClick={() => {
                               setCurrentTemplate(t.data);
                             }}
@@ -558,6 +570,7 @@ export default function App() {
                             Usar
                           </button>
                           <button 
+                            type="button"
                             onClick={() => deleteTemplate(t.id)}
                             className="text-red-500 hover:text-red-700"
                             title="Excluir template"
@@ -600,6 +613,7 @@ export default function App() {
                           </div>
                         </div>
                         <button
+                          type="button"
                           onClick={() => {
                             setSelectedTemplate(t.data);
                           }}
