@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { validateTemplate } from '../utils/templateValidation';
-import { Template, TemplateField, TemplateFieldType, TemplateSide } from '../types/template';
+import { Template, TemplateFieldType, TemplateSide } from '../types/template';
 
 describe('Validação de Template', () => {
   let templateValido: Template;
@@ -121,8 +121,8 @@ describe('Validação de Template', () => {
         {
           id: 'field-2',
           name: 'Foto',
-          type: 'photo',
-          side: 'back',
+          type: 'photo' as TemplateFieldType,
+          side: 'back' as TemplateSide,
           x: 200,
           y: 200,
           width: 150,
@@ -141,22 +141,12 @@ describe('Validação de Template', () => {
     const templateInvalido = {
       ...templateValido,
       fields: [
+        ...templateValido.fields,
         {
-          id: 'field-duplicado',
-          name: 'Campo 1',
-          type: 'text',
-          side: 'front',
-          x: 100,
-          y: 100,
-          width: 200,
-          height: 30,
-          required: true
-        },
-        {
-          id: 'field-duplicado', // Mesmo ID
+          id: 'field-1', // ID duplicado com o primeiro campo
           name: 'Campo 2',
-          type: 'text',
-          side: 'front',
+          type: 'text' as TemplateFieldType,
+          side: 'front' as TemplateSide,
           x: 100,
           y: 200,
           width: 200,
@@ -177,8 +167,8 @@ describe('Validação de Template', () => {
         {
           id: 'field-1',
           name: 'Campo Inválido',
-          type: 'text',
-          side: 'front',
+          type: 'text' as TemplateFieldType,
+          side: 'front' as TemplateSide,
           x: -10, // Coordenada negativa
           y: 100,
           width: 200,
@@ -199,8 +189,8 @@ describe('Validação de Template', () => {
         {
           id: 'field-1',
           name: 'Campo Fora',
-          type: 'text',
-          side: 'front',
+          type: 'text' as TemplateFieldType,
+          side: 'front' as TemplateSide,
           x: 700, // Fora do limite (800 - 200 < 700)
           y: 100,
           width: 200,
