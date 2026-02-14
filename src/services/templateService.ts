@@ -17,7 +17,16 @@ const toDBFormat = (template: Template) => ({
   name: template.name,
   frente_img: template.frontImage,
   verso_img: template.backImage,
-  campos: template.frontFields.map(field => ({
+  frente_campos: template.frontFields.map(field => ({
+    id: field.id,
+    name: field.label,
+    type: field.type === 'photo' ? 'foto' : 'texto',
+    x: field.x,
+    y: field.y,
+    w: field.width,
+    h: field.height
+  })),
+  verso_campos: template.backFields.map(field => ({
     id: field.id,
     name: field.label,
     type: field.type === 'photo' ? 'foto' : 'texto',
@@ -58,7 +67,7 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   name: dbTemplate.name,
   frontImage: dbTemplate.frente_img || dbTemplate.data.frenteImg,
   backImage: dbTemplate.verso_img || dbTemplate.data.versoImg,
-  frontFields: (dbTemplate.campos || dbTemplate.data.campos || []).map(field => ({
+  frontFields: (dbTemplate.frente_campos || dbTemplate.data.campos || []).map(field => ({
     id: field.id,
     type: field.type === 'foto' ? 'photo' : 'text',
     x: field.x,
@@ -67,7 +76,7 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
     height: field.h,
     label: field.name
   })),
-  backFields: (dbTemplate.data.versoCampos || []).map(field => ({
+  backFields: (dbTemplate.verso_campos || dbTemplate.data.versoCampos || []).map(field => ({
     id: field.id,
     type: field.type === 'foto' ? 'photo' : 'text',
     x: field.x,
