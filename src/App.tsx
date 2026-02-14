@@ -249,7 +249,10 @@ const App: React.FC = () => {
               <h1 className="text-2xl font-bold">Editor de Templates</h1>
             </div>
             <button
-              onClick={() => setView('list')}
+              onClick={() => {
+                setSelectedTemplate(null); // Resetar
+                setView('list');
+              }}
               className="px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium transition-colors"
             >
               Voltar ao Menu
@@ -260,7 +263,10 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <TemplateEditor 
           template={selectedTemplate}
-          onSave={() => setView('list')} 
+          onSave={() => {
+            setSelectedTemplate(null); // Resetar
+            setView('list');
+          }} 
         />
       </main>
     </div>
