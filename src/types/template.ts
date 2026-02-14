@@ -35,13 +35,36 @@ export interface TemplateCardData {
 
 export type Side = 'front' | 'back';
 
-// Para o Supabase
+// Para o Supabase - ESTRUTURA REAL DO BANCO
 export interface TemplateDB {
   id: string;
   name: string;
+  data: {
+    id: string;
+    name: string;
+    frenteImg: string;
+    versoImg: string | null;
+    campos: Array<{
+      id: string;
+      name: string;
+      type: 'texto' | 'foto';
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }>;
+  };
   frente_img: string;
   verso_img: string | null;
-  campos: Field[];
+  campos: Array<{
+    id: string;
+    name: string;
+    type: 'texto' | 'foto';
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }>;
   created_at: string;
   updated_at: string;
 }

@@ -12,21 +12,52 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-// Converter do formato do app para o DB
-const toDBFormat = (template: Template): Omit<TemplateDB, 'id' | 'created_at' | 'updated_at'> => ({
+// Converter do formato do app para o DB - ESTRUTURA REAL
+const toDBFormat = (template: Template) => ({
   name: template.name,
   frente_img: template.frontImage,
   verso_img: template.backImage,
-  campos: template.frontFields // Combinar front e back fields em um array só
+  campos: template.frontFields.map(field => ({
+    id: field.id,
+    name: field.label,
+    type: field.type === 'photo' ? 'foto' : 'texto',
+    x: field.x,
+    y: field.y,
+    w: field.width,
+    h: field.height
+  })),
+  data: {
+    id: template.id,
+    name: template.name,
+    frenteImg: template.frontImage,
+    versoImg: template.backImage,
+    campos: template.frontFields.map(field => ({
+      id: field.id,
+      name: field.label,
+      type: field.type === 'photo' ? 'foto' : 'texto',
+      x: field.x,
+      y: field.y,
+      w: field.width,
+      h: field.height
+    }))
+  }
 });
 
-// Converter do DB para o formato do app
+// Converter do DB para o formato do app - ESTRUTURA REAL
 const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   id: dbTemplate.id,
   name: dbTemplate.name,
-  frontImage: dbTemplate.frente_img,
-  backImage: dbTemplate.verso_img,
-  frontFields: dbTemplate.campos || [], // Usar campos como frontFields
+  frontImage: dbTemplate.frente_img || dbTemplate.data.frenteImg,
+  backImage: dbTemplate.verso_img || dbTemplate.data.versoImg,
+  frontFields: (dbTemplate.campos || dbTemplate.data.campos || []).map(field => ({
+    id: field.id,
+    type: field.type === 'foto' ? 'photo' : 'text',
+    x: field.x,
+    y: field.y,
+    width: field.w,
+    height: field.h,
+    label: field.name
+  })),
   backFields: [], // Back fields vazio por enquanto
   createdAt: new Date(dbTemplate.created_at),
   updatedAt: new Date(dbTemplate.updated_at)
