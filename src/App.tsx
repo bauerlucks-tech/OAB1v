@@ -415,6 +415,7 @@ export default function App() {
     frenteCampos: [],
     versoCampos: []
   });
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateData | null>(null);
 
   useEffect(() => {
     const carregarTemplates = async () => {
@@ -623,12 +624,9 @@ export default function App() {
             
             <CarteirinhaGenerator
               templates={savedTemplates}
-              selectedTemplate={internalSelectedTemplate}
+              selectedTemplate={selectedTemplate}
               onTemplateSelect={(template) => {
-                setInternalSelectedTemplate(template);
-                if (onTemplateSelect) {
-                  onTemplateSelect(template);
-                }
+                setSelectedTemplate(template);
               }}
               onGenerate={handleGenerateCard}
             />
