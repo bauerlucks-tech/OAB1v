@@ -25,12 +25,13 @@ interface Template {
 type Side = 'front' | 'back';
 
 interface TemplateEditorProps {
+  template?: Template | null;
   onSave?: () => void;
 }
 
-const TemplateEditor: React.FC<TemplateEditorProps> = ({ onSave }) => {
+const TemplateEditor: React.FC<TemplateEditorProps> = ({ template: initialTemplate, onSave }) => {
   // Estados principais
-  const [template, setTemplate] = useState<Template>({
+  const [template, setTemplate] = useState<Template>(initialTemplate || {
     id: '',
     name: 'Novo Template',
     frontImage: '',
@@ -38,6 +39,13 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ onSave }) => {
     frontFields: [],
     backFields: []
   });
+
+  // Atualizar estado quando o template prop mudar
+  useEffect(() => {
+    if (initialTemplate) {
+      setTemplate(initialTemplate);
+    }
+  }, [initialTemplate]);
   
   const [currentSide, setCurrentSide] = useState<Side>('front');
   const [zoom, setZoom] = useState(1);

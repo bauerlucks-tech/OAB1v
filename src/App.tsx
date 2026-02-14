@@ -258,7 +258,10 @@ const App: React.FC = () => {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <TemplateEditor onSave={() => setView('list')} />
+        <TemplateEditor 
+          template={selectedTemplate}
+          onSave={() => setView('list')} 
+        />
       </main>
     </div>
   );
