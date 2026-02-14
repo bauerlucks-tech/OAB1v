@@ -48,7 +48,7 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   name: dbTemplate.name,
   frontImage: dbTemplate.frente_img || dbTemplate.data.frenteImg,
   backImage: dbTemplate.verso_img || dbTemplate.data.versoImg,
-  frontFields: (dbTemplate.campos || dbTemplate.data.campos || []).map(field => ({
+  frontFields: (dbTemplate.campos || dbTemplate.data?.campos || []).map(field => ({
     id: field.id,
     type: field.type === 'foto' ? 'photo' : 'text',
     x: field.x,
