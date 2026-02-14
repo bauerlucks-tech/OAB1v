@@ -166,6 +166,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   const [fieldType, setFieldType] = useState<'texto' | 'foto'>('texto');
   const [isDragging, setIsDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [activeSide, setActiveSide] = useState<'frente' | 'verso'>('frente');
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const handleImageUpload = (side: 'frente' | 'verso', e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,7 +188,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
     const newField: Field = {
       id: Date.now().toString(),
       type: fieldType,
-      name: `Campo ${template.frenteCampos.length + 1}`,
+      name: `Campo ${template.frenteCampos.length + template.versoCampos.length + 1}`,
       x,
       y,
       w: fieldType === 'foto' ? 80 : 120,
@@ -197,35 +198,46 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
       color: '#000000'
     };
 
+    const camposAtuais = activeSide === 'frente' ? template.frenteCampos : template.versoCampos;
+    const novosCampos = [...camposAtuais, newField];
+    
     onTemplateChange({
       ...template,
-      frenteCampos: [...template.frenteCampos, newField]
+      [activeSide === 'frente' ? 'frenteCampos' : 'versoCampos']: novosCampos
     });
     setIsAddingField(false);
     setSelectedField(newField);
   };
 
   const updateField = (fieldId: string, updates: Partial<Field>) => {
+    const camposAtuais = activeSide === 'frente' ? template.frenteCampos : template.versoCampos;
+    const camposAtualizados = camposAtuais.map(field =>
+      field.id === fieldId ? { ...field, ...updates } : field
+    );
+    
     onTemplateChange({
       ...template,
-      frenteCampos: template.frenteCampos.map(field =>
-        field.id === fieldId ? { ...field, ...updates } : field
-      )
+      [activeSide === 'frente' ? 'frenteCampos' : 'versoCampos']: camposAtualizados
     });
   };
 
   const deleteField = (fieldId: string) => {
+    const camposAtuais = activeSide === 'frente' ? template.frenteCampos : template.versoCampos;
+    const camposFiltrados = camposAtuais.filter(field => field.id !== fieldId);
+    
     onTemplateChange({
       ...template,
-      frenteCampos: template.frenteCampos.filter(field => field.id !== fieldId)
+      [activeSide === 'frente' ? 'frenteCampos' : 'versoCampos']: camposFiltrados
     });
+    
     if (selectedField?.id === fieldId) {
       setSelectedField(null);
     }
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isAddingField || !template.frenteImg) return;
+    const imagemAtual = activeSide === 'frente' ? template.frenteImg : template.versoImg;
+    if (!isAddingField || !imagemAtual) return;
     
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect) {
@@ -248,7 +260,9 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
     
-    const field = template.frenteCampos.find(f => f.id === isDragging);
+    const camposAtuais = activeSide === 'frente' ? template.frenteCampos : template.versoCampos;
+    const field = camposAtuais.find(f => f.id === isDragging);
+    
     if (field) {
       const newX = Math.max(0, Math.min(field.x + deltaX, rect.width - field.w));
       const newY = Math.max(0, Math.min(field.y + deltaY, rect.height - field.h));
@@ -300,11 +314,37 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
         </div>
       </div>
 
+      {/* Seletor de Lado */}
+      <div className="flex justify-center">
+        <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+          <button
+            onClick={() => setActiveSide('frente')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeSide === 'frente'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Frente
+          </button>
+          <button
+            onClick={() => setActiveSide('verso')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeSide === 'verso'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Verso
+          </button>
+        </div>
+      </div>
+
       {/* Editor Visual */}
-      {template.frenteImg && (
+      {((activeSide === 'frente' && template.frenteImg) || (activeSide === 'verso' && template.versoImg)) && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-lg">Editor de Campos</h3>
+            <h3 className="font-bold text-lg">Editor de Campos - {activeSide === 'frente' ? 'Frente' : 'Verso'}</h3>
             <div className="flex gap-2">
               <select
                 value={fieldType}
@@ -336,19 +376,19 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             style={{
-              backgroundImage: `url(${template.frenteImg})`,
+              backgroundImage: `url(${activeSide === 'frente' ? template.frenteImg : template.versoImg})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               width: '100%',
               height: '500px'
             }}
           >
-            {template.frenteCampos.map((field) => (
+            {(activeSide === 'frente' ? template.frenteCampos : template.versoCampos).map((field) => (
               <div
                 key={field.id}
-                className={`absolute border-2 cursor-move ${
+                className={`absolute border-2 cursor-move z-10 transition-all duration-200 hover:border-amber-400 hover:shadow-lg ${
                   selectedField?.id === field.id
-                    ? 'border-amber-500 bg-amber-100/50'
+                    ? 'border-amber-500 bg-amber-100/50 shadow-xl'
                     : field.type === 'texto'
                     ? 'border-blue-500 bg-blue-100/50'
                     : 'border-purple-500 bg-purple-100/50'
@@ -356,8 +396,10 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                 style={{
                   left: `${field.x}px`,
                   top: `${field.y}px`,
-                  width: `${field.w}px`,
-                  height: `${field.h}px`
+                  width: `${Math.max(field.w, 60)}px`,
+                  height: `${Math.max(field.h, 30)}px`,
+                  minWidth: '60px',
+                  minHeight: '30px'
                 }}
                 onMouseDown={(e) => handleMouseDown(field.id, e)}
                 onClick={(e) => {
@@ -378,19 +420,20 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
 
             {isAddingField && (
               <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-1 rounded text-sm">
-                Clique para adicionar campo {fieldType}
+                Clique para adicionar campo {fieldType} no {activeSide === 'frente' ? 'frente' : 'verso'}
               </div>
             )}
           </div>
 
           {/* Editor de Propriedades */}
           {selectedField && (
-            <FieldDataEditor
-              field={selectedField}
-              value={fieldValues[selectedField.id] || ''}
-              onChange={(value) => handleFieldDataChange(selectedField.id, value)}
-              onClose={handleFieldEditorClose}
-            />
+            <div className="relative z-20">
+              <FieldEditor
+                field={selectedField}
+                onUpdate={(field) => updateField(field.id, field)}
+                onDelete={() => deleteField(selectedField.id)}
+              />
+            </div>
           )}
         </div>
       )}
@@ -402,6 +445,73 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
       >
         <Save size={16} /> Salvar Template no Supabase
       </button>
+    </div>
+  );
+}
+
+// --- COMPONENTE EDITOR DE DADOS DE CAMPO ---
+function FieldDataEditor({ field, value, onChange, onClose }: {
+  field: Field;
+  value: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">Editar Campo: {field.name}</h3>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {field.type === 'texto' ? 'Texto do Campo' : 'URL da Foto'}
+            </label>
+            {field.type === 'texto' ? (
+              <input
+                type="text"
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder={`Digite o texto para ${field.name}`}
+                autoFocus
+              />
+            ) : (
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        onChange(event.target?.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full text-sm"
+                />
+                {value && (
+                  <img
+                    src={value}
+                    alt="Preview"
+                    className="mt-2 w-32 h-24 object-cover rounded border"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -451,10 +561,21 @@ function InteractivePreview({ template, dados, foto, onFieldClick, onFieldDataCh
     
     // Verificar se clicou em algum campo
     const clickedField = template.frenteCampos.find(campo => {
-      const campoX = (campo.x / 600) * 400;
-      const campoY = (campo.y / 400) * 267;
-      const campoW = (campo.w / 600) * 400;
-      const campoH = (campo.h / 400) * 267;
+      // Obter dimensões reais da imagem
+      const img = previewRef.current?.querySelector('img');
+      if (!img) return false;
+      
+      const imgRect = img.getBoundingClientRect();
+      
+      // Calcular escala
+      const scaleX = imgRect.width / 600; // 600 é a largura original do canvas
+      const scaleY = imgRect.height / 400; // 400 é a altura original do canvas
+      
+      // Posição e tamanho escalados
+      const campoX = campo.x * scaleX;
+      const campoY = campo.y * scaleY;
+      const campoW = campo.w * scaleX;
+      const campoH = campo.h * scaleY;
       
       return x >= campoX && x <= campoX + campoW && y >= campoY && y <= campoY + campoH;
     });
@@ -492,10 +613,10 @@ function InteractivePreview({ template, dados, foto, onFieldClick, onFieldDataCh
                     : 'border-purple-500 bg-purple-100/50'
                 }`}
                 style={{
-                  left: `${(campo.x / 921) * 400}px`,
-                  top: `${(campo.y / 267) * 400}px`,
-                  width: `${(campo.w / 921) * 400}px`,
-                  height: `${(campo.h / 267) * 400}px`,
+                  left: `${(campo.x / 600) * 100}%`,
+                  top: `${(campo.y / 400) * 100}%`,
+                  width: `${(campo.w / 600) * 100}%`,
+                  height: `${(campo.h / 400) * 100}%`,
                   fontSize: campo.fontSize ? `${(campo.fontSize / 14) * 10}px` : '10px',
                   color: campo.color,
                   fontFamily: campo.fontFamily,
@@ -528,73 +649,19 @@ function InteractivePreview({ template, dados, foto, onFieldClick, onFieldDataCh
           <p className="text-gray-500 text-sm">Nenhuma imagem de template</p>
         )}
       </div>
-    </div>
-  );
-}
-
-// --- COMPONENTE EDITOR DE DADOS DE CAMPO ---
-function FieldDataEditor({ field, value, onChange, onClose }: {
-  field: Field;
-  value: string;
-  onChange: (value: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">Editar Campo: {field.name}</h3>
-          <button 
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            ✕
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {field.type === 'texto' ? 'Texto do Campo' : 'URL da Foto'}
-            </label>
-            {field.type === 'texto' ? (
-              <input
-                type="text"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder={`Digite o texto para ${campo.name}`}
-                autoFocus
-              />
-            ) : (
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        onChange(event.target?.result as string);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  className="w-full text-sm"
-                />
-                {value && (
-                  <img
-                    src={value}
-                    alt="Preview"
-                    className="mt-2 w-32 h-24 object-cover rounded border"
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      
+      {/* Modal de Edição de Campo */}
+      {selectedField && (
+        <FieldDataEditor
+          field={selectedField}
+          value={fieldValues[selectedField.id] || ''}
+          onChange={(value) => {
+            setFieldValues(prev => ({ ...prev, [selectedField.id]: value }));
+            onFieldDataChange(selectedField.id, value);
+          }}
+          onClose={() => setSelectedField(null)}
+        />
+      )}
     </div>
   );
 }
@@ -618,6 +685,7 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [previewData, setPreviewData] = useState<Record<string, string>>({});
   const [isProcessingAI, setIsProcessingAI] = useState(false);
 
   const handleFotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1017,58 +1085,14 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
               </div>
             )}
 
-            {/* Preview */}
-            <div>
-              <h4 className="font-medium mb-2">Preview</h4>
-              <div className="border rounded-lg p-4 bg-gray-50">
-                {selectedTemplate.frenteImg ? (
-                  <div className="relative" style={{ width: 'fit-content' }}>
-                    <img
-                      src={selectedTemplate.frenteImg}
-                      alt="Template"
-                      style={{ maxWidth: '400px' }}
-                    />
-                    {selectedTemplate.frenteCampos.map((campo) => (
-                      <div
-                        key={campo.id}
-                        className="absolute text-xs"
-                        style={{
-                          left: `${(campo.x / 600) * 400}px`,
-                          top: `${(campo.y / 400) * 267}px`,
-                          width: `${(campo.w / 600) * 400}px`,
-                          height: `${(campo.h / 400) * 267}px`,
-                          fontSize: campo.fontSize ? `${(campo.fontSize / 14) * 10}px` : '10px',
-                          color: campo.color,
-                          fontFamily: campo.fontFamily,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          overflow: 'hidden'
-                        }}
-                      >
-                        {campo.type === 'texto' ? (
-                          previewData[campo.id] || campo.name
-                        ) : (
-                          previewData[campo.id] && (
-                            <img 
-                              src={previewData[campo.id]} 
-                              alt="Campo Foto" 
-                              style={{ 
-                                width: '100%', 
-                                height: '100%', 
-                                objectFit: 'cover' 
-                              }} 
-                            />
-                          )
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm">Nenhuma imagem de template</p>
-                )}
-              </div>
-            </div>
+            {/* Preview Interativo */}
+            <InteractivePreview
+              template={selectedTemplate}
+              dados={dados}
+              foto={foto}
+              onFieldClick={handleFieldClick}
+              onFieldDataChange={handleFieldDataChange}
+            />
 
             {/* Modal de Corte de Foto */}
       {showCropper && imageToCrop && (
