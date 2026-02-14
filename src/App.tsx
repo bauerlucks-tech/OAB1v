@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 import { Template } from './types/template';
 import TemplateEditorAdvanced from './components/TemplateEditorAdvanced';
-import CardGenerator from './components/CardGenerator';
-import { getAllTemplates, saveCard, getTemplateById, saveTemplate } from './services/templateService';
+import DocumentGenerator from './components/DocumentGenerator';
+import { getAllTemplates, saveTemplate, getTemplateById, deleteTemplate } from './services/templateService';
+
+type View = 'list' | 'editor' | 'generator' | 'document';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -20,29 +22,23 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary capturou erro:', error, errorInfo);
+    console.error('Error caught by boundary:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-red-50 flex items-center justify-center">
-          <div className="text-center p-8">
-            <h2 className="text-2xl font-bold text-red-800 mb-4">Ocorreu um Erro</h2>
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-              <p className="font-medium">O sistema encontrou um erro inesperado.</p>
-              <details className="mt-2">
-                <summary className="cursor-pointer font-medium">Ver detalhes do erro</summary>
-                <pre className="mt-2 text-sm text-left whitespace-pre-wrap">
-                  {this.state.error?.toString()}
-                </pre>
-              </details>
-            </div>
+        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Oops! Algo deu errado.</h1>
+            <p className="text-gray-400 mb-4">
+              {this.state.error?.message || 'Erro desconhecido'}
+            </p>
             <button
-              onClick={() => this.setState({ hasError: false, error: null })}
-              className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
             >
-              Tentar Novamente
+              Recarregar Página
             </button>
           </div>
         </div>
@@ -53,43 +49,25 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-type View = 'list' | 'editor' | 'generator';
-
-const App: React.FC = () => {
+function App() {
   const [view, setView] = useState<View>('list');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [cardData, setCardData] = useState<any>({
-    templateId: '',
-    fields: {},
-    photoUrl: ''
-  });
   const [loading, setLoading] = useState(false);
 
-  // Carregar templates do Supabase
+  // Carregar templates ao iniciar
   useEffect(() => {
-    console.log('App: useEffect iniciado');
     loadTemplates();
   }, []);
 
   const loadTemplates = async () => {
-    console.log('loadTemplates: carregando do Supabase...');
-    setLoading(true);
     try {
+      setLoading(true);
       const data = await getAllTemplates();
-      console.log('loadTemplates: dados recebidos:', data);
-      
-      if (Array.isArray(data)) {
-        console.log('loadTemplates: quantidade de templates:', data.length);
-        setTemplates(data);
-      } else {
-        console.error('loadTemplates: dados não é um array:', data);
-        setTemplates([]);
-      }
-    } catch (error: any) {
+      setTemplates(data);
+    } catch (error) {
       console.error('Erro ao carregar templates:', error);
-      // Simplificar tratamento de erro para evitar loops
-      setTemplates([]);
+      alert('Erro ao carregar templates');
     } finally {
       setLoading(false);
     }
@@ -97,13 +75,13 @@ const App: React.FC = () => {
 
   // Criar novo template
   const handleNewTemplate = () => {
+    setSelectedTemplate(null);
     setView('editor');
   };
 
   // Editar template
   const handleEditTemplate = async (template: Template) => {
     try {
-      // Buscar template completo com dados do verso
       const fullTemplate = await getTemplateById(template.id);
       setSelectedTemplate(fullTemplate);
       setView('editor');
@@ -113,12 +91,33 @@ const App: React.FC = () => {
     }
   };
 
+  // Excluir template
+  const handleDeleteTemplate = async (template: Template) => {
+    if (!confirm(`Tem certeza que deseja excluir o template "${template.name}"?`)) {
+      return;
+    }
+
+    try {
+      await deleteTemplate(template.id);
+      await loadTemplates();
+    } catch (error) {
+      console.error('Erro ao excluir template:', error);
+      alert('Erro ao excluir template');
+    }
+  };
+
+  // Gerar documento
+  const handleGenerateDocument = (template: Template) => {
+    setSelectedTemplate(template);
+    setView('document');
+  };
+
   // Salvar template
   const handleSaveTemplate = async (template: Template) => {
     try {
       const savedTemplate = await saveTemplate(template);
       setSelectedTemplate(savedTemplate);
-      await loadTemplates(); // Recarregar lista
+      await loadTemplates();
       return savedTemplate;
     } catch (error) {
       console.error('Erro ao salvar template:', error);
@@ -127,134 +126,93 @@ const App: React.FC = () => {
     }
   };
 
-  // Gerar carteirinha
-  const handleGenerateCard = (template: Template) => {
-    console.log('handleGenerateCard: template=', template);
-    setSelectedTemplate(template);
-    setCardData({
-      templateId: template.id,
-      fields: {},
-      photoUrl: ''
-    });
-    setView('generator');
-  };
-
   // Renderizar lista de templates
-  const renderTemplateList = () => (
+  const renderList = () => (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-slate-900 text-white">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <FileText className="w-8 h-8 text-green-500" />
-              <h1 className="text-2xl font-bold">Sistema OAB v3 - Producao</h1>
+              <h1 className="text-2xl font-bold">Gerador de Templates</h1>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
-                🗄️ Supabase Conectado
-              </div>
-              <button
-                onClick={handleNewTemplate}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
-              >
-                <Plus size={20} />
-                Criar Novo Template
-              </button>
-            </div>
+            <button
+              onClick={handleNewTemplate}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium transition-colors"
+            >
+              <Plus size={20} />
+              Novo Template
+            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Templates Disponiveis</h2>
-              <p className="text-gray-600">Gerencie seus templates de carteirinhas</p>
-            </div>
-            <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
-              🗄️ Supabase Conectado
-            </div>
-          </div>
-
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            <p className="ml-4 text-gray-600">Carregando templates...</p>
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-r-2 border-green-500"></div>
+            <p className="mt-4 text-gray-600">Carregando templates...</p>
           </div>
         ) : templates.length === 0 ? (
           <div className="text-center py-12">
-            <FileText size={48} className="mx-auto mb-4 text-gray-400" />
+            <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum template encontrado</h3>
-            <p className="text-gray-600 mb-6">Crie seu primeiro template para comecar</p>
+            <p className="text-gray-500 mb-4">
+              Crie seu primeiro template para começar a usar o sistema.
+            </p>
             <button
               onClick={handleNewTemplate}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
             >
-              <Plus size={20} />
-              Criar Template
+              Criar Primeiro Template
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {templates.map((template) => (
-              <div key={template.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
-                <div className="aspect-video bg-gray-100 rounded-t-lg overflow-hidden">
-                  {template.frontImage ? (
-                    <img
-                      src={template.frontImage}
-                      alt={template.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      <FileText size={32} />
-                    </div>
-                  )}
-                </div>
-                
+              <div key={template.id} className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                 <div className="p-4">
-                  <h3 className="font-semibold text-lg text-gray-900 mb-2">{template.name}</h3>
-                  
-                  <div className="text-sm text-gray-600 mb-4">
-                    <p>Campos frente: {template.frontFields?.length || 0}</p>
-                    <p>Campos verso: {template.backFields?.length || 0}</p>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900 truncate">
+                      {template.name}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleGenerateDocument(template)}
+                        className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                        title="Gerar Documento"
+                      >
+                        <Printer size={16} className="text-white" />
+                      </button>
+                      <button
+                        onClick={() => handleEditTemplate(template)}
+                        className="p-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
+                        title="Editar Template"
+                      >
+                        <Edit2 size={16} className="text-white" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTemplate(template)}
+                        className="p-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                        title="Excluir Template"
+                      >
+                        <Trash2 size={16} className="text-white" />
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditTemplate(template)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm"
-                    >
-                      <Edit2 size={16} />
-                      Editar
-                    </button>
-                    
-                    <button
-                      onClick={() => handleGenerateCard(template)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm"
-                    >
-                      <Printer size={16} />
-                      Gerar
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        if (confirm('Tem certeza que deseja deletar este template?')) {
-                          alert('Funcionalidade de deletar será implementada no TemplateEditor');
-                        }
-                      }}
-                      className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  
+                  <div className="text-sm text-gray-600">
+                    <p>Dimensões: {template.width} x {template.height}</p>
+                    <p>Campos: {template.fields.length}</p>
+                    <p>
+                      Fotos: {template.fields.filter(f => f.type === 'photo').length} (máx. 1 no verso)
+                    </p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-        </div>
       </main>
     </div>
   );
@@ -271,7 +229,7 @@ const App: React.FC = () => {
             </div>
             <button
               onClick={() => {
-                setSelectedTemplate(null); // Resetar
+                setSelectedTemplate(null);
                 setView('list');
               }}
               className="px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium transition-colors"
@@ -284,161 +242,59 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <TemplateEditorAdvanced 
           template={selectedTemplate}
-          onChange={(updatedTemplate) => {
-            setSelectedTemplate(updatedTemplate); // Apenas atualizar estado local
-          }}
-          onSave={async () => {
-            if (selectedTemplate) {
-              try {
-                await handleSaveTemplate(selectedTemplate);
-                setSelectedTemplate(null); // Resetar
-                setView('list');
-              } catch (error) {
-                // Erro já tratado em handleSaveTemplate
-              }
+          onChange={async (updatedTemplate) => {
+            try {
+              await handleSaveTemplate(updatedTemplate);
+            } catch (error) {
+              // Erro já tratado em handleSaveTemplate
             }
+          }}
+          onSave={() => {
+            setSelectedTemplate(null);
+            setView('list');
           }} 
         />
       </main>
     </div>
   );
 
-  // Renderizar gerador
-  const renderGenerator = () => {
-    console.log('renderGenerator: selectedTemplate=', selectedTemplate);
-    console.log('renderGenerator: cardData=', cardData);
-    
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="bg-slate-900 text-white">
-          <div className="max-w-7xl mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <Printer className="w-8 h-8 text-green-500" />
-                <h1 className="text-2xl font-bold">Gerador de Carteirinhas</h1>
-              </div>
-              <button
-                onClick={() => setView('list')}
-                className="px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium transition-colors"
-              >
-                Voltar
-              </button>
-            </div>
-          </div>
-        </header>
+  // Renderizar gerador de documento
+  const renderDocument = () => {
+    if (!selectedTemplate) return null;
 
-        <main className="max-w-7xl mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-6">Dados da Carteirinha</h2>
-              
-              {selectedTemplate && (
-                <div className="bg-white rounded-lg shadow-md p-6">
-                  <h3 className="font-semibold text-lg mb-4">{selectedTemplate.name}</h3>
-                  
-                  <div className="space-y-4">
-                    {[...selectedTemplate.frontFields, ...selectedTemplate.backFields].map((field: any) => (
-                      <div key={field.id}>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {field.label}
-                        </label>
-                        
-                        {field.type === 'photo' ? (
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  setCardData((prev: any) => ({
-                                    ...prev,
-                                    photoUrl: event.target?.result as string
-                                  }));
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        ) : (
-                          <input
-                            type="text"
-                            value={cardData.fields[field.id] || ''}
-                            onChange={(e) => setCardData((prev: any) => ({
-                              ...prev,
-                              fields: {
-                                ...prev.fields,
-                                [field.id]: e.target.value
-                              }
-                            }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder={`Digite ${field.label.toLowerCase()}`}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <h2 className="text-2xl font-bold mb-6">Preview</h2>
-              {selectedTemplate && (
-                <CardGenerator
-                  template={selectedTemplate}
-                  data={cardData}
-                  onGenerate={async (url) => {
-                    console.log('Carteirinha gerada:', url);
-                    
-                    // Salvar carteirinha no Supabase
-                    try {
-                      await saveCard(
-                        selectedTemplate.id,
-                        selectedTemplate.name,
-                        selectedTemplate.frontImage || '',
-                        selectedTemplate.backImage,
-                        cardData,
-                        url
-                      );
-                      alert('Carteirinha salva com sucesso!');
-                      
-                      // Perguntar se deseja voltar ao menu
-                      if (confirm('Carteirinha salva com sucesso! Deseja voltar ao menu principal?')) {
-                        setView('list');
-                      }
-                    } catch (error: any) {
-                      console.error('Erro ao salvar carteirinha:', error);
-                      alert('Erro ao salvar carteirinha: ' + error.message);
-                    }
-                  }}
-                />
-              )}
-            </div>
-          </div>
-        </main>
-      </div>
+    return (
+      <DocumentGenerator
+        template={selectedTemplate}
+        onSave={(data) => {
+          console.log('Dados do documento:', data);
+          alert('Documento salvo com sucesso!');
+          setView('list');
+        }}
+      />
     );
   };
 
   // Renderizar view principal
-  switch (view) {
-    case 'editor':
-      return renderEditor();
-    case 'generator':
-      return renderGenerator();
-    default:
-      return renderTemplateList();
-  }
-};
+  if (view === 'list') return renderList();
+  if (view === 'editor') return renderEditor();
+  if (view === 'document') return renderDocument();
 
-// Componente wrapper com Error Boundary
-const AppWithErrorBoundary: React.FC = () => (
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>
-);
+  return (
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">View não encontrada</h1>
+          <p className="text-gray-400 mb-4">A view solicitada não existe.</p>
+          <button
+            onClick={() => setView('list')}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
+          >
+            Voltar ao Menu
+          </button>
+        </div>
+      </div>
+    </ErrorBoundary>
+  );
+}
 
-export default AppWithErrorBoundary;
+export default App;

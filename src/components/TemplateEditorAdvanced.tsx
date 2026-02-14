@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback } from "react";
 import { ZoomIn, ZoomOut, Move, Pencil, Maximize, Type, Image as ImageIcon, Trash2 } from "lucide-react";
-import { Field, Template } from "../types/template";
+import { Template, TemplateField, TemplateFieldType, TemplateSide } from "../types/template";
 
 interface Props {
   template?: Template | null;
@@ -19,24 +19,25 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-  const [currentSide, setCurrentSide] = useState<'front' | 'back'>('front');
-  const [fieldType, setFieldType] = useState<'text' | 'photo'>('text');
+  const [currentSide, setCurrentSide] = useState<TemplateSide>('front');
+  const [fieldType, setFieldType] = useState<TemplateFieldType>('text');
   const [selectedField, setSelectedField] = useState<string | null>(null);
 
-  const [drawing, setDrawing] = useState<Field | null>(null);
+  const [drawing, setDrawing] = useState<TemplateField | null>(null);
 
   // Template inicial se não for fornecido
   const currentTemplate = template || {
     id: '',
     name: 'Novo Template',
-    frontImage: '',
-    backImage: null,
-    frontFields: [],
-    backFields: []
+    frontImageUrl: '',
+    backImageUrl: '',
+    width: 800,
+    height: 500,
+    fields: []
   };
 
-  const currentFields = currentSide === 'front' ? currentTemplate.frontFields : currentTemplate.backFields;
-  const currentImage = currentSide === 'front' ? currentTemplate.frontImage : currentTemplate.backImage;
+  const currentFields = currentTemplate.fields.filter(field => field.side === currentSide);
+  const currentImage = currentSide === 'front' ? currentTemplate.frontImageUrl : currentTemplate.backImageUrl;
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -56,17 +57,31 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
       const x = (e.clientX - rect.left - pan.x) / zoom;
       const y = (e.clientY - rect.top - pan.y) / zoom;
 
+      // Verificar regra: só pode existir 1 campo photo no back
+      if (fieldType === 'photo' && currentSide === 'back') {
+        const existingPhotoField = currentTemplate.fields.find(
+          f => f.type === 'photo' && f.side === 'back'
+        );
+        if (existingPhotoField) {
+          alert('Já existe um campo de foto no verso. Apenas um é permitido.');
+          return;
+        }
+      }
+
       setDrawing({
         id: crypto.randomUUID(),
+        name: fieldType === 'text' ? 'Texto' : 'Foto',
         type: fieldType,
+        side: currentSide,
         x,
         y,
         width: 0,
         height: 0,
-        label: fieldType === 'text' ? 'Texto' : 'Foto'
+        required: false,
+        locked: fieldType === 'photo' // Campo photo sempre locked
       });
     }
-  }, [mode, currentImage, pan, zoom, fieldType]);
+  }, [mode, currentImage, pan, zoom, fieldType, currentSide, currentTemplate.fields]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
@@ -96,25 +111,30 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
 
       const updatedTemplate = {
         ...currentTemplate,
-        [currentSide === 'front' ? 'frontFields' : 'backFields']: 
-          [...currentFields, newField]
+        fields: [...currentTemplate.fields, newField]
       };
 
       onChange(updatedTemplate);
     }
     setDrawing(null);
     setIsPanning(false);
-  }, [drawing, currentTemplate, currentSide, currentFields, onChange]);
+  }, [drawing, currentTemplate, onChange]);
 
   const deleteField = useCallback((fieldId: string) => {
+    // Não permitir deletar campo photo locked
+    const field = currentTemplate.fields.find(f => f.id === fieldId);
+    if (field?.locked) {
+      alert('Campo de foto não pode ser removido.');
+      return;
+    }
+
     const updatedTemplate = {
       ...currentTemplate,
-      [currentSide === 'front' ? 'frontFields' : 'backFields']: 
-        currentFields.filter(f => f.id !== fieldId)
+      fields: currentTemplate.fields.filter(f => f.id !== fieldId)
     };
     onChange(updatedTemplate);
     setSelectedField(null);
-  }, [currentTemplate, currentSide, currentFields, onChange]);
+  }, [currentTemplate, onChange]);
 
   const resetView = useCallback(() => {
     setZoom(1);
@@ -192,7 +212,7 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
           >
             Frente
           </button>
-          {currentTemplate.backImage && (
+          {currentTemplate.backImageUrl && (
             <button
               onClick={() => setCurrentSide('back')}
               className={`px-2 py-1 text-xs rounded ${currentSide === 'back' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-500'}`}
@@ -205,7 +225,7 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
         <div className="w-px h-6 bg-gray-600" />
 
         {/* Ações */}
-        {selectedField && (
+        {selectedField && !currentTemplate.fields.find(f => f.id === selectedField)?.locked && (
           <button 
             onClick={() => deleteField(selectedField)} 
             className="p-1 hover:bg-red-600 text-red-400"
@@ -245,63 +265,68 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "top left",
+            width: `${currentTemplate.width}px`,
+            height: `${currentTemplate.height}px`,
           }}
           className="absolute top-0 left-0 bg-gray-800"
         >
           {/* Imagem de Fundo */}
           {currentImage && (
-            <div
-              className="absolute top-0 left-0 bg-cover bg-center bg-no-repeat"
+            <img
+              src={currentImage}
+              alt="Template"
+              className="absolute top-0 left-0 w-full h-full object-contain"
               style={{
-                width: '800px',
-                height: '500px',
-                backgroundImage: `url(${currentImage})`,
+                width: `${currentTemplate.width}px`,
+                height: `${currentTemplate.height}px`,
               }}
             />
           )}
 
-          {/* Container do Template */}
-          <div className="absolute top-0 left-0 w-[800px] h-[500px]">
-            {/* Campos Existentes */}
-            {currentFields.map(field => (
-              <div
-                key={field.id}
-                onClick={() => setSelectedField(field.id)}
-                style={{
-                  left: field.x,
-                  top: field.y,
-                  width: field.width,
-                  height: field.height,
-                }}
-                className={`absolute border-2 cursor-pointer transition-colors ${
-                  selectedField === field.id
-                    ? 'border-yellow-400 bg-yellow-400/20'
-                    : field.type === 'photo'
-                    ? 'border-purple-500 bg-purple-500/20 hover:border-purple-400'
-                    : 'border-blue-500 bg-blue-500/20 hover:border-blue-400'
-                }`}
-              >
-                <div className="absolute top-0 left-0 text-xs bg-black/50 text-white px-1 rounded-br">
-                  {field.label}
-                </div>
+          {/* Campos Existentes */}
+          {currentFields.map(field => (
+            <div
+              key={field.id}
+              onClick={() => setSelectedField(field.id)}
+              style={{
+                left: field.x,
+                top: field.y,
+                width: field.width,
+                height: field.height,
+              }}
+              className={`absolute border-2 cursor-pointer transition-colors ${
+                selectedField === field.id
+                  ? 'border-yellow-400 bg-yellow-400/20'
+                  : field.type === 'photo'
+                  ? 'border-purple-500 bg-purple-500/20 hover:border-purple-400'
+                  : 'border-blue-500 bg-blue-500/20 hover:border-blue-400'
+              } ${field.locked ? 'pointer-events-none opacity-75' : ''}`}
+            >
+              <div className="absolute top-0 left-0 text-xs bg-black/50 text-white px-1 rounded-br">
+                {field.name}
               </div>
-            ))}
+              {field.locked && (
+                <div className="absolute top-0 right-0 text-xs bg-red-500 text-white px-1 rounded-bl">
+                  🔒
+                </div>
+              )}
+            </div>
+          ))}
 
-            {/* Campo Sendo Desenhado */}
-            {drawing && (
-              <div
-                style={{
-                  left: drawing.x,
-                  top: drawing.y,
-                  width: drawing.width,
-                  height: drawing.height,
-                }}
-                className={`absolute border-2 border-blue-400 bg-blue-400/20 pointer-events-none ${
-                  drawing.type === 'photo' ? 'border-purple-400 bg-purple-400/20' : ''
-                }`}
-              />
-            )}
-          </div>
+          {/* Campo Sendo Desenhado */}
+          {drawing && (
+            <div
+              style={{
+                left: drawing.x,
+                top: drawing.y,
+                width: drawing.width,
+                height: drawing.height,
+              }}
+              className={`absolute border-2 border-blue-400 bg-blue-400/20 pointer-events-none ${
+                drawing.type === 'photo' ? 'border-purple-400 bg-purple-400/20' : ''
+              }`}
+            />
+          )}
         </div>
       </div>
 

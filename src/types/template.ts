@@ -1,78 +1,61 @@
-// types/template.ts
-
-export interface Field {
+export interface Template {
   id: string;
-  type: 'text' | 'photo';
+  name: string;
+
+  frontImageUrl: string;
+  backImageUrl: string;
+
+  width: number;
+  height: number;
+
+  fields: TemplateField[];
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type TemplateFieldType = "text" | "photo";
+export type TemplateSide = "front" | "back";
+
+export interface TemplateField {
+  id: string;
+  name: string;
+  type: TemplateFieldType;
+  side: TemplateSide;
+
   x: number;
   y: number;
   width: number;
   height: number;
-  label: string;
-  fontSize?: number; // Para campos de texto
-  fontFamily?: string;
-  color?: string;
-  align?: 'left' | 'center' | 'right';
+
+  required: boolean;
+  locked?: boolean;
 }
 
-export interface Template {
-  id: string;
-  name: string;
-  frontImage: string;
-  backImage: string | null;
-  frontFields: Field[];
-  backFields: Field[];
-  createdAt?: Date;
-  updatedAt?: Date;
+export interface GeneratedFieldValue {
+  fieldId: string;
+  value: string | File;
 }
 
-export interface TemplateCardData {
-  templateId: string;
-  fields: {
-    [fieldId: string]: string; // fieldId => valor
-  };
-  photoUrl?: string;
-}
-
-export type Side = 'front' | 'back';
-
-// Para o Supabase - ESTRUTURA REAL DO BANCO
+// Para compatibilidade com Supabase - ESTRUTURA REAL DO BANCO
 export interface TemplateDB {
   id: string;
   name: string;
-  data: {
+  frontImageUrl: string;
+  backImageUrl: string;
+  width: number;
+  height: number;
+  fields: Array<{
     id: string;
     name: string;
-    frenteImg: string;
-    versoImg: string | null;
-    campos: Array<{
-      id: string;
-      name: string;
-      type: 'texto' | 'foto';
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-    }>;
-    versoCampos: Array<{
-      id: string;
-      name: string;
-      type: 'texto' | 'foto';
-      x: number;
-      y: number;
-      w: number;
-      h: number;
-    }>;
-  };
-  frente_img: string | null;
-  verso_img: string | null;
-  campos: Array<{
-    id: string;
-    name: string;
-    type: 'texto' | 'foto';
+    type: 'text' | 'photo';
+    side: 'front' | 'back';
     x: number;
     y: number;
-    w: number;
-    h: number;
+    width: number;
+    height: number;
+    required: boolean;
+    locked?: boolean;
   }>;
   created_at: string;
   updated_at: string;

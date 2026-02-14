@@ -1,0 +1,258 @@
+import React, { useState, useRef } from 'react';
+import { Upload, Download, FileText } from 'lucide-react';
+import { Template, GeneratedFieldValue } from '../types/template';
+
+interface Props {
+  template: Template;
+  onSave?: (data: GeneratedFieldValue[]) => void;
+}
+
+export default function DocumentGenerator({ template, onSave }: Props) {
+  const [formData, setFormData] = useState<GeneratedFieldValue[]>([]);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Inicializar formData com campos do template
+  React.useEffect(() => {
+    const initialData: GeneratedFieldValue[] = template.fields.map(field => ({
+      fieldId: field.id,
+      value: ''
+    }));
+    setFormData(initialData);
+  }, [template.fields]);
+
+  // Gerar preview em tempo real
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !template.frontImageUrl) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Configurar canvas com tamanho do template
+    canvas.width = template.width;
+    canvas.height = template.height;
+
+    // Limpar canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Carregar e desenhar imagem de fundo
+    const img = new Image();
+    img.onload = () => {
+      // Desenhar imagem
+      ctx.drawImage(img, 0, 0, template.width, template.height);
+
+      // Desenhar campos
+      template.fields.forEach(field => {
+        const fieldValue = formData.find(f => f.fieldId === field.id)?.value;
+
+        if (field.type === 'text' && typeof fieldValue === 'string') {
+          // Desenhar texto
+          ctx.font = '16px Arial';
+          ctx.fillStyle = '#000000';
+          ctx.fillText(fieldValue || field.name, field.x, field.y + 20);
+        } else if (field.type === 'photo') {
+          // Desenhar placeholder ou imagem
+          if (fieldValue instanceof File) {
+            // Se for arquivo, criar preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              const photoImg = new Image();
+              photoImg.onload = () => {
+                ctx.drawImage(photoImg, field.x, field.y, field.width, field.height);
+                setPreviewImage(canvas.toDataURL('image/png'));
+              };
+              photoImg.src = e.target?.result as string;
+            };
+            reader.readAsDataURL(fieldValue);
+          } else {
+            // Placeholder para campo de foto vazio
+            ctx.strokeStyle = '#666666';
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(field.x, field.y, field.width, field.height);
+            ctx.fillStyle = '#999999';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Foto', field.x + field.width / 2, field.y + field.height / 2);
+            setPreviewImage(canvas.toDataURL('image/png'));
+          }
+        }
+      });
+    };
+    img.src = template.frontImageUrl;
+  }, [template, formData]);
+
+  const handleFieldChange = (fieldId: string, value: string | File) => {
+    setFormData(prev => {
+      const newData = [...prev];
+      const index = newData.findIndex(f => f.fieldId === fieldId);
+      if (index >= 0) {
+        newData[index] = { fieldId, value };
+      }
+      return newData;
+    });
+  };
+
+  const handleFileUpload = (fieldId: string, file: File) => {
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecione apenas arquivos de imagem.');
+      return;
+    }
+
+    // Validar tamanho (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('A imagem deve ter no máximo 5MB.');
+      return;
+    }
+
+    handleFieldChange(fieldId, file);
+  };
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave(formData);
+    }
+  };
+
+  const handleDownload = () => {
+    if (!previewImage) return;
+
+    const link = document.createElement('a');
+    link.download = `documento-${template.name}-${Date.now()}.png`;
+    link.href = previewImage;
+    link.click();
+  };
+
+  const getFieldValue = (fieldId: string): string | File => {
+    const field = formData.find(f => f.fieldId === fieldId);
+    return field?.value || '';
+  };
+
+  return (
+    <div className="w-full h-full bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="w-6 h-6 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-900">
+                Gerar Documento: {template.name}
+              </h1>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2"
+              >
+                <Upload size={16} />
+                Salvar Dados
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={!previewImage}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg flex items-center gap-2 disabled:cursor-not-allowed"
+              >
+                <Download size={16} />
+                Baixar Imagem
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Formulário */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">Preencher Campos</h2>
+            
+            <div className="space-y-4">
+              {template.fields.map(field => {
+                const value = getFieldValue(field.id);
+                const isPhoto = field.type === 'photo';
+                
+                return (
+                  <div key={field.id} className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      {field.name}
+                      {field.required && <span className="text-red-500 ml-1">*</span>}
+                      {isPhoto && (
+                        <span className="text-xs text-gray-500 ml-2">
+                          (Apenas 1 foto no verso)
+                        </span>
+                      )}
+                    </label>
+                    
+                    {isPhoto ? (
+                      <div className="flex items-center gap-3">
+                        {value instanceof File ? (
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={URL.createObjectURL(value)}
+                              alt="Preview"
+                              className="w-16 h-16 object-cover rounded border"
+                            />
+                            <span className="text-sm text-gray-600">{value.name}</span>
+                            <button
+                              onClick={() => handleFieldChange(field.id, '')}
+                              className="text-red-500 hover:text-red-700 text-sm"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(field.id, file);
+                              }}
+                              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:rounded file:border-0"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={typeof value === 'string' ? value : ''}
+                        onChange={(e) => handleFieldChange(field.id, e.target.value)}
+                        placeholder={field.name}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">Preview</h2>
+            
+            <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+              <canvas
+                ref={canvasRef}
+                className="w-full h-auto"
+                style={{ maxWidth: '100%', height: 'auto' }}
+              />
+            </div>
+            
+            {previewImage && (
+              <div className="mt-4 text-center">
+                <img
+                  src={previewImage}
+                  alt="Preview do documento"
+                  className="max-w-full h-auto border border-gray-200 rounded-lg"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
