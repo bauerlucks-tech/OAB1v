@@ -61,7 +61,15 @@ export const getAllTemplates = async (): Promise<Template[]> => {
       .select('id, name, frontImageUrl, backImageUrl, width, height, fields, created_at, updated_at')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+    
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
     return data.map((dbTemplate: TemplateDB) => fromDBFormat(dbTemplate));
   } catch (error) {
     console.error('Erro ao buscar templates:', error);
@@ -82,7 +90,15 @@ export const getTemplateById = async (id: string): Promise<Template> => {
       .eq('id', id)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
+    
+    if (!data) {
+      throw new Error('Template não encontrado');
+    }
+    
     return fromDBFormat(data);
   } catch (error) {
     console.error('Erro ao buscar template:', error);
