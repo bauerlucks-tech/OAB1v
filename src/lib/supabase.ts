@@ -13,8 +13,8 @@ export const supabase = createClient(
   supabaseKey || ''
 )
 
-// Tipos para o banco de dados
-export interface TemplateDB {
+// Tipos para o banco de dados (LEGADO - manter para compatibilidade)
+export interface SupabaseTemplateDB {
   id: string
   name: string
   data: Record<string, unknown> // TemplateData completo

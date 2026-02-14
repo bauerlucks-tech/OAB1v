@@ -118,7 +118,11 @@ export const exportDocumentToPng = (
       };
 
       // Iniciar carregamento da imagem
-      img.src = side === 'front' ? template.frontImageUrl : template.backImageUrl || '';
+      if (side === 'back' && !template.backImageUrl) {
+        reject(new Error('Template não possui imagem do verso'));
+        return;
+      }
+      img.src = side === 'front' ? template.frontImageUrl : template.backImageUrl!;
       
     } catch (error) {
       reject(error);
