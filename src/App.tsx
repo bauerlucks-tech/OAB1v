@@ -1982,62 +1982,19 @@ export default function App() {
                 )}
 
                 {adminTab === 'generate' && (
-                  <CarteirinhaGenerator
-                    templates={savedTemplates}
-                    onGenerate={handleGenerateCard}
-                  />
+                  <div>
+                    <h3 className="font-bold text-lg mb-4">Gerar Carteira</h3>
+                    <p className="text-gray-600">Selecione um template na aba "Templates Salvos" para gerar uma carteira.</p>
+                  </div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-lg p-8 border-l-4 border-amber-500">
-              <h2 className="text-2xl font-bold text-center mb-8 text-slate-800">
-                ⚖️ Módulo Gerador - Emitir Documentos
-              </h2>
-              <p className="text-center text-slate-600 mb-8">
-                Selecione um template e preencha os dados para emissão oficial
-              </p>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <CarteirinhaGenerator
-                  templates={savedTemplates}
-                  selectedTemplate={selectedTemplate}
-                  onTemplateSelect={setSelectedTemplate}
-                />
-                
-                <div>
-                  <h3 className="font-bold text-lg mb-4">Template Selecionado</h3>
-                  {selectedTemplate ? (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-gray-50 rounded-lg">
-                        <h4 className="font-medium">{selectedTemplate.name}</h4>
-                        <p className="text-sm text-gray-600">
-                          {selectedTemplate.frenteCampos.length} campos configurados
-                        </p>
-                        <div className="text-xs text-gray-500 mt-2">
-                          Campos: {selectedTemplate.frenteCampos.map(c => 
-                            `${c.name} (${c.type})`
-                          ).join(', ')}
-                        </div>
-                      </div>
-                      
-                      {selectedTemplate.frenteImg && (
-                        <div>
-                          <h4 className="font-medium mb-2">Preview do Template</h4>
-                          <img
-                            src={selectedTemplate.frenteImg}
-                            alt="Template Preview"
-                            className="w-full rounded border"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">Selecione um template para visualizar</p>
-                  )}
-                </div>
-              </div>
-            </div>
+            <CarteirinhaGenerator
+              templates={savedTemplates}
+              selectedTemplate={null}
+              onTemplateSelect={() => {}}
+            />
           )}
         </div>
       </main>
