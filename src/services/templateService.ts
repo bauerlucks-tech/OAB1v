@@ -42,6 +42,25 @@ const toDBFormat = (template: Template) => ({
   }
 });
 
+// Tipo parcial para listagem otimizada (sem campo data)
+interface TemplateDBList {
+  id: string;
+  name: string;
+  frente_img: string | null;
+  verso_img: string | null;
+  campos: Array<{
+    id: string;
+    name: string;
+    type: 'texto' | 'foto';
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  }>;
+  created_at: string;
+  updated_at: string;
+}
+
 // Converter do DB para o formato do app - ESTRUTURA REAL
 const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   id: dbTemplate.id,
@@ -70,7 +89,27 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   updatedAt: new Date(dbTemplate.updated_at)
 });
 
-// Buscar todos os templates
+// Converter da listagem para o formato do app (sem versoCampos)
+const fromDBListFormat = (dbTemplate: TemplateDBList): Template => ({
+  id: dbTemplate.id,
+  name: dbTemplate.name,
+  frontImage: dbTemplate.frente_img || '',
+  backImage: dbTemplate.verso_img || null,
+  frontFields: (dbTemplate.campos || []).map(field => ({
+    id: field.id,
+    type: field.type === 'foto' ? 'photo' : 'text',
+    x: field.x,
+    y: field.y,
+    width: field.w,
+    height: field.h,
+    label: field.name
+  })),
+  backFields: [], // Sem versoCampos na listagem
+  createdAt: new Date(dbTemplate.created_at),
+  updatedAt: new Date(dbTemplate.updated_at)
+});
+
+// Buscar todos os templates (listagem otimizada)
 export const getAllTemplates = async (): Promise<Template[]> => {
   if (!supabase) {
     throw new Error('supabase - Supabase client is not configured');
@@ -79,13 +118,34 @@ export const getAllTemplates = async (): Promise<Template[]> => {
   try {
     const { data, error } = await supabase
       .from('templates')
-      .select('id, name, frente_img, verso_img, campos, data, created_at, updated_at')
+      .select('id, name, frente_img, verso_img, campos, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data.map((dbTemplate: TemplateDB) => fromDBFormat(dbTemplate));
+    return data.map((dbTemplate: TemplateDBList) => fromDBListFormat(dbTemplate));
   } catch (error) {
     console.error('Erro ao buscar templates:', error);
+    throw error;
+  }
+};
+
+// Buscar template completo com dados do verso (para edição)
+export const getTemplateById = async (id: string): Promise<Template> => {
+  if (!supabase) {
+    throw new Error('supabase - Supabase client is not configured');
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('id, name, frente_img, verso_img, campos, data, created_at, updated_at')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return fromDBFormat(data);
+  } catch (error) {
+    console.error('Erro ao buscar template:', error);
     throw error;
   }
 };

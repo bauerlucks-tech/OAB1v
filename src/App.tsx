@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 import { Template } from './types/template';
 import TemplateEditor from './components/TemplateEditor';
 import CardGenerator from './components/CardGenerator';
-import { getAllTemplates, saveCard } from './services/templateService';
+import { getAllTemplates, saveCard, getTemplateById } from './services/templateService';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -101,9 +101,16 @@ const App: React.FC = () => {
   };
 
   // Editar template
-  const handleEditTemplate = (template: Template) => {
-    setSelectedTemplate(template);
-    setView('editor');
+  const handleEditTemplate = async (template: Template) => {
+    try {
+      // Buscar template completo com dados do verso
+      const fullTemplate = await getTemplateById(template.id);
+      setSelectedTemplate(fullTemplate);
+      setView('editor');
+    } catch (error) {
+      console.error('Erro ao carregar template para edição:', error);
+      alert('Erro ao carregar template para edição');
+    }
   };
 
   // Gerar carteirinha
