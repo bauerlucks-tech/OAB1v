@@ -47,29 +47,24 @@ function FieldEditor({ field, onUpdate, onDelete }: {
   onDelete: () => void;
 }) {
   return (
-    <div className="absolute bg-white border-2 border-blue-500 rounded-lg p-3 shadow-lg z-10" 
-         style={{ 
-           left: `${field.x}px`, 
-           top: `${field.y}px`, 
-           width: `${Math.max(field.w, 200)}px` 
-         }}>
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-bold text-blue-600">{field.name}</span>
+    <div className="bg-white border-2 border-blue-500 rounded-lg p-4 shadow-lg">
+      <div className="flex justify-between items-center mb-3">
+        <span className="text-sm font-bold text-blue-600">{field.name}</span>
         <button 
           onClick={onDelete}
           className="text-red-500 hover:text-red-700"
         >
-          <Trash2 size={12} />
+          <Trash2 size={14} />
         </button>
       </div>
       
-      <div className="space-y-2 text-xs">
+      <div className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
-          <label className="font-medium">Tipo:</label>
+          <label className="font-medium min-w-[40px]">Tipo:</label>
           <select
             value={field.type}
             onChange={(e) => onUpdate({ ...field, type: e.target.value as 'texto' | 'foto' })}
-            className="border rounded px-1 py-0.5"
+            className="border rounded px-2 py-1 flex-1"
           >
             <option value="texto">Texto</option>
             <option value="foto">Foto</option>
@@ -77,12 +72,12 @@ function FieldEditor({ field, onUpdate, onDelete }: {
         </div>
         
         <div className="flex items-center gap-2">
-          <label className="font-medium">Nome:</label>
+          <label className="font-medium min-w-[40px]">Nome:</label>
           <input
             type="text"
             value={field.name}
             onChange={(e) => onUpdate({ ...field, name: e.target.value })}
-            className="border rounded px-1 py-0.5 flex-1"
+            className="border rounded px-2 py-1 flex-1"
           />
         </div>
         
@@ -93,7 +88,7 @@ function FieldEditor({ field, onUpdate, onDelete }: {
               type="number"
               value={field.x}
               onChange={(e) => onUpdate({ ...field, x: parseInt(e.target.value) })}
-              className="border rounded px-1 py-0.5 w-16"
+              className="border rounded px-2 py-1 w-20"
             />
           </div>
           <div className="flex items-center gap-1">
@@ -102,7 +97,7 @@ function FieldEditor({ field, onUpdate, onDelete }: {
               type="number"
               value={field.y}
               onChange={(e) => onUpdate({ ...field, y: parseInt(e.target.value) })}
-              className="border rounded px-1 py-0.5 w-16"
+              className="border rounded px-2 py-1 w-20"
             />
           </div>
         </div>
@@ -114,7 +109,7 @@ function FieldEditor({ field, onUpdate, onDelete }: {
               type="number"
               value={field.w}
               onChange={(e) => onUpdate({ ...field, w: parseInt(e.target.value) })}
-              className="border rounded px-1 py-0.5 w-16"
+              className="border rounded px-2 py-1 w-20"
             />
           </div>
           <div className="flex items-center gap-1">
@@ -123,7 +118,7 @@ function FieldEditor({ field, onUpdate, onDelete }: {
               type="number"
               value={field.h}
               onChange={(e) => onUpdate({ ...field, h: parseInt(e.target.value) })}
-              className="border rounded px-1 py-0.5 w-16"
+              className="border rounded px-2 py-1 w-20"
             />
           </div>
         </div>
@@ -131,21 +126,21 @@ function FieldEditor({ field, onUpdate, onDelete }: {
         {field.type === 'texto' && (
           <>
             <div className="flex items-center gap-2">
-              <label className="font-medium">Fonte:</label>
+              <label className="font-medium min-w-[40px]">Fonte:</label>
               <input
                 type="number"
                 value={field.fontSize || 14}
                 onChange={(e) => onUpdate({ ...field, fontSize: parseInt(e.target.value) })}
-                className="border rounded px-1 py-0.5 w-16"
+                className="border rounded px-2 py-1 w-20"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="font-medium">Cor:</label>
+              <label className="font-medium min-w-[40px]">Cor:</label>
               <input
                 type="color"
                 value={field.color || '#000000'}
                 onChange={(e) => onUpdate({ ...field, color: e.target.value })}
-                className="w-8 h-6 border rounded"
+                className="w-12 h-8 border rounded"
               />
             </div>
           </>
@@ -165,9 +160,47 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   const [isAddingField, setIsAddingField] = useState(false);
   const [fieldType, setFieldType] = useState<'texto' | 'foto'>('texto');
   const [isDragging, setIsDragging] = useState<string | null>(null);
+  const [isResizing, setIsResizing] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [activeSide, setActiveSide] = useState<'frente' | 'verso'>('frente');
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [activeTab, setActiveTab] = useState<'criar' | 'templates'>('criar');
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+
+  // Carregar templates salvos
+  useEffect(() => {
+    const carregarTemplates = async () => {
+      try {
+        const templates = await carregarTemplatesSupabase();
+        setSavedTemplates(templates);
+      } catch (error) {
+        console.error('Erro ao carregar templates:', error);
+      }
+    };
+    
+    if (activeTab === 'templates') {
+      carregarTemplates();
+    }
+  }, [activeTab]);
+
+  const deleteTemplate = async (id: string) => {
+    try {
+      await supabase
+        .from('templates')
+        .delete()
+        .eq('id', id);
+      
+      const templates = await carregarTemplatesSupabase();
+      setSavedTemplates(templates);
+    } catch (error) {
+      console.error('Erro ao deletar template:', error);
+    }
+  };
 
   const handleImageUpload = (side: 'frente' | 'verso', e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -185,6 +218,8 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   };
 
   const addField = (x: number, y: number) => {
+    console.log('addField chamado com:', { x, y });
+    
     const newField: Field = {
       id: Date.now().toString(),
       type: fieldType,
@@ -197,16 +232,25 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
       fontFamily: 'Arial',
       color: '#000000'
     };
+    
+    console.log('Novo campo criado:', newField);
 
     const camposAtuais = activeSide === 'frente' ? template.frenteCampos : template.versoCampos;
     const novosCampos = [...camposAtuais, newField];
+    
+    console.log('Campos atuais:', camposAtuais.length);
+    console.log('Novos campos:', novosCampos.length);
     
     onTemplateChange({
       ...template,
       [activeSide === 'frente' ? 'frenteCampos' : 'versoCampos']: novosCampos
     });
+    
+    console.log('Template atualizado');
     setIsAddingField(false);
     setSelectedField(newField);
+    
+    console.log('Campo adicionado com sucesso');
   };
 
   const updateField = (fieldId: string, updates: Partial<Field>) => {
@@ -236,215 +280,371 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isPanning) return;
+    
     const imagemAtual = activeSide === 'frente' ? template.frenteImg : template.versoImg;
-    if (!isAddingField || !imagemAtual) return;
+    
+    console.log('Canvas click:', {
+      isAddingField,
+      imagemAtual: !!imagemAtual,
+      activeSide,
+      templateFrenteImg: !!template.frenteImg,
+      templateVersoImg: !!template.versoImg
+    });
+    
+    if (!isAddingField || !imagemAtual) {
+      console.log('Não pode adicionar campo:', {
+        isAddingField,
+        imagemAtual: !!imagemAtual
+      });
+      return;
+    }
     
     const rect = canvasRef.current?.getBoundingClientRect();
+    console.log('Canvas rect:', rect);
     if (rect) {
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      // Ajustar coordenadas considerando zoom e pan
+      const x = (e.clientX - rect.left - pan.x) / zoom;
+      const y = (e.clientY - rect.top - pan.y) / zoom;
+      console.log('Adicionando campo em:', { x, y });
       addField(x, y);
+    } else {
+      console.log('Canvas rect é nulo');
     }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.min(Math.max(0.5, zoom * delta), 3);
+    setZoom(newZoom);
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+      // Botão direito ou Shift+esquerdo para pan
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y
+      });
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   };
 
   const handleMouseDown = (fieldId: string, e: React.MouseEvent) => {
     e.preventDefault();
-    setIsDragging(fieldId);
+    e.stopPropagation();
+    
+    const target = e.target as HTMLElement;
+    const handle = target.getAttribute('data-resize-handle');
+    
+    if (handle) {
+      // Redimensionamento
+      setIsResizing(fieldId);
+      setResizeHandle(handle);
+    } else {
+      // Arrastar
+      setIsDragging(fieldId);
+    }
+    
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !canvasRef.current) return;
+    if (!canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
     
     const camposAtuais = activeSide === 'frente' ? template.frenteCampos : template.versoCampos;
-    const field = camposAtuais.find(f => f.id === isDragging);
     
-    if (field) {
-      const newX = Math.max(0, Math.min(field.x + deltaX, rect.width - field.w));
-      const newY = Math.max(0, Math.min(field.y + deltaY, rect.height - field.h));
-      
-      updateField(isDragging, { x: newX, y: newY });
-      setDragStart({ x: e.clientX, y: e.clientY });
+    if (isDragging) {
+      // Arrastar campo
+      const field = camposAtuais.find(f => f.id === isDragging);
+      if (field) {
+        const newX = Math.max(0, Math.min(field.x + deltaX, rect.width - field.w));
+        const newY = Math.max(0, Math.min(field.y + deltaY, rect.height - field.h));
+        
+        updateField(isDragging, { x: newX, y: newY });
+        setDragStart({ x: e.clientX, y: e.clientY });
+      }
+    } else if (isResizing) {
+      // Redimensionar campo
+      const field = camposAtuais.find(f => f.id === isResizing);
+      if (field) {
+        let newW = field.w;
+        let newH = field.h;
+        let newX = field.x;
+        let newY = field.y;
+        
+        if (resizeHandle?.includes('right')) {
+          newW = Math.max(30, field.w + deltaX);
+        }
+        if (resizeHandle?.includes('bottom')) {
+          newH = Math.max(30, field.h + deltaY);
+        }
+        if (resizeHandle?.includes('left')) {
+          const deltaW = Math.min(deltaX, field.w - 30);
+          newW = field.w - deltaW;
+          newX = field.x + deltaW;
+        }
+        if (resizeHandle?.includes('top')) {
+          const deltaH = Math.min(deltaY, field.h - 30);
+          newH = field.h - deltaH;
+          newY = field.y + deltaH;
+        }
+        
+        updateField(isResizing, { x: newX, y: newY, w: newW, h: newH });
+        setDragStart({ x: e.clientX, y: e.clientY });
+      }
     }
   };
 
   const handleMouseUp = () => {
     setIsDragging(null);
+    setIsResizing(null);
+    setResizeHandle(null);
   };
 
   return (
     <div className="space-y-6">
-      {/* Upload de Imagens */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Base Frente</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => handleImageUpload('frente', e)}
-            className="text-xs w-full"
-          />
-          {template.frenteImg && (
-            <img
-              src={template.frenteImg}
-              alt="Frente"
-              className="mt-2 w-full h-32 object-cover rounded border"
-            />
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Base Verso</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => handleImageUpload('verso', e)}
-            className="text-xs w-full"
-          />
-          {template.versoImg && (
-            <img
-              src={template.versoImg}
-              alt="Verso"
-              className="mt-2 w-full h-32 object-cover rounded border"
-            />
-          )}
-        </div>
+      {/* Abas de Navegação */}
+      <div className="flex border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('criar')}
+          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+            activeTab === 'criar'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          📝 Criar Novo Template
+        </button>
+        <button
+          onClick={() => setActiveTab('templates')}
+          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+            activeTab === 'templates'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          📁 Templates Salvos
+        </button>
       </div>
 
-      {/* Seletor de Lado */}
-      <div className="flex justify-center">
-        <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-          <button
-            onClick={() => setActiveSide('frente')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeSide === 'frente'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Frente
-          </button>
-          <button
-            onClick={() => setActiveSide('verso')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeSide === 'verso'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Verso
-          </button>
-        </div>
-      </div>
+      {/* Conteúdo das Abas */}
+      {activeTab === 'criar' ? (
+        <div className="space-y-6">
+          {/* Nome do Template */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Template</label>
+            <input
+              type="text"
+              value={template.name}
+              onChange={(e) => onTemplateChange({...template, name: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Nome do template"
+            />
+          </div>
 
-      {/* Editor Visual */}
-      {((activeSide === 'frente' && template.frenteImg) || (activeSide === 'verso' && template.versoImg)) && (
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-lg">Editor de Campos - {activeSide === 'frente' ? 'Frente' : 'Verso'}</h3>
-            <div className="flex gap-2">
-              <select
-                value={fieldType}
-                onChange={(e) => setFieldType(e.target.value as 'texto' | 'foto')}
-                className="px-2 py-1 border rounded text-sm"
-              >
-                <option value="texto">Texto</option>
-                <option value="foto">Foto</option>
-              </select>
+          {/* Upload de Imagens */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Base Frente</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageUpload('frente', e)}
+                className="text-xs w-full"
+              />
+              {template.frenteImg && (
+                <img
+                  src={template.frenteImg}
+                  alt="Frente"
+                  className="mt-2 w-full h-32 object-cover rounded border"
+                />
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Base Verso</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageUpload('verso', e)}
+                className="text-xs w-full"
+              />
+              {template.versoImg && (
+                <img
+                  src={template.versoImg}
+                  alt="Verso"
+                  className="mt-2 w-full h-32 object-cover rounded border"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Seletor de Lado */}
+          <div className="flex justify-center">
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
               <button
-                onClick={() => setIsAddingField(!isAddingField)}
-                className={`px-3 py-1 rounded text-sm flex items-center gap-1 ${
-                  isAddingField
-                    ? 'bg-red-500 text-white'
-                    : 'bg-amber-500 text-white'
+                onClick={() => setActiveSide('frente')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeSide === 'frente'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <Plus size={14} />
-                {isAddingField ? 'Cancelar' : 'Adicionar Campo'}
+                Frente
+              </button>
+              <button
+                onClick={() => setActiveSide('verso')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeSide === 'verso'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Verso
               </button>
             </div>
           </div>
-          <div
-            className={`relative border-2 border-gray-300 rounded-lg overflow-hidden ${
-              isAddingField ? 'cursor-crosshair' : 'cursor-default'
-            }`}
-            onClick={handleCanvasClick}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-            style={{
-              backgroundImage: `url(${activeSide === 'frente' ? template.frenteImg : template.versoImg})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              width: '100%',
-              height: '500px'
-            }}
-          >
-            {(activeSide === 'frente' ? template.frenteCampos : template.versoCampos).map((field) => (
-              <div
-                key={field.id}
-                className={`absolute border-2 cursor-move z-10 transition-all duration-200 hover:border-amber-400 hover:shadow-lg ${
-                  selectedField?.id === field.id
-                    ? 'border-amber-500 bg-amber-100/50 shadow-xl'
-                    : field.type === 'texto'
-                    ? 'border-blue-500 bg-blue-100/50'
-                    : 'border-purple-500 bg-purple-100/50'
-                }`}
-                style={{
-                  left: `${field.x}px`,
-                  top: `${field.y}px`,
-                  width: `${Math.max(field.w, 60)}px`,
-                  height: `${Math.max(field.h, 30)}px`,
-                  minWidth: '60px',
-                  minHeight: '30px'
-                }}
-                onMouseDown={(e) => handleMouseDown(field.id, e)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedField(field);
-                }}
-              >
-                <div className="flex items-center justify-center h-full text-xs p-1">
-                  {field.type === 'texto' ? (
-                    <Type size={12} />
-                  ) : (
-                    <ImageIcon size={12} />
-                  )}
-                  <span className="ml-1 truncate">{field.name}</span>
+
+          {/* Editor Visual */}
+          {((activeSide === 'frente' && template.frenteImg) || (activeSide === 'verso' && template.versoImg)) && (
+            <div className="flex gap-6">
+              {/* Canvas Principal */}
+              <div className="flex-1">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg">Editor de Campos - {activeSide === 'frente' ? 'Frente' : 'Verso'}</h3>
+                  <div className="flex gap-2">
+                    <div className="flex items-center gap-2 bg-gray-100 rounded px-2 py-1">
+                      <span className="text-xs font-medium">Zoom:</span>
+                      <span className="text-xs">{Math.round(zoom * 100)}%</span>
+                      <button
+                        onClick={resetView}
+                        className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    <select
+                      value={fieldType}
+                      onChange={(e) => setFieldType(e.target.value as 'texto' | 'foto')}
+                      className="px-2 py-1 border rounded text-sm"
+                    >
+                      <option value="texto">Texto</option>
+                      <option value="foto">Foto</option>
+                    </select>
+                    <button
+                      onClick={() => setIsAddingField(!isAddingField)}
+                      className={`px-3 py-1 rounded text-sm flex items-center gap-1 ${
+                        isAddingField
+                          ? 'bg-red-500 text-white'
+                          : 'bg-amber-500 text-white'
+                      }`}
+                    >
+                      <Plus size={14} />
+                      {isAddingField ? 'Cancelar' : 'Adicionar Campo'}
+                    </button>
+                  </div>
+                </div>
+                <div
+                  ref={canvasRef}
+                  className={`relative border-2 border-gray-300 rounded-lg overflow-hidden ${
+                    isAddingField ? 'cursor-crosshair' : isPanning ? 'cursor-move' : 'cursor-default'
+                  }`}
+                  onClick={handleCanvasClick}
+                  onWheel={handleWheel}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onMouseLeave={handleCanvasMouseUp}
+                  style={{
+                    backgroundImage: `url(${activeSide === 'frente' ? template.frenteImg : template.versoImg})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    width: '100%',
+                    height: '500px',
+                    transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                    transformOrigin: 'top left'
+                  }}
+                >
+                  {/* Campos aqui... */}
                 </div>
               </div>
-            ))}
 
-            {isAddingField && (
-              <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-1 rounded text-sm">
-                Clique para adicionar campo {fieldType} no {activeSide === 'frente' ? 'frente' : 'verso'}
+              {/* Editor de Propriedades Lateral */}
+              <div className="w-80">
+                <h4 className="font-bold text-lg mb-4">Propriedades do Campo</h4>
+                {selectedField ? (
+                  <FieldEditor
+                    field={selectedField}
+                    onUpdate={(field) => updateField(field.id, field)}
+                    onDelete={() => deleteField(selectedField.id)}
+                  />
+                ) : (
+                  <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                    <p className="text-gray-500 text-sm">Selecione um campo para editar</p>
+                    <p className="text-gray-400 text-xs mt-2">Clique em qualquer campo no canvas</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Editor de Propriedades */}
-          {selectedField && (
-            <div className="relative z-20">
-              <FieldEditor
-                field={selectedField}
-                onUpdate={(field) => updateField(field.id, field)}
-                onDelete={() => deleteField(selectedField.id)}
-              />
+          {/* Botão Salvar */}
+          <button
+            onClick={onSave}
+            className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
+          >
+            <Save size={16} /> Salvar Template no Supabase
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <h3 className="font-bold text-lg">Templates Salvos</h3>
+          {savedTemplates.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">Nenhum template salvo ainda</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {savedTemplates.map((t) => (
+                <div key={t.id} className="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium">{t.name}</h4>
+                    <button 
+                      onClick={() => deleteTemplate(t.id)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <p>{t.data.frenteCampos.length} campos na frente</p>
+                    <p>{t.data.versoCampos.length} campos no verso</p>
+                    <p className="text-xs mt-1">Criado em: {new Date(t.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       )}
-
-      {/* Botão Salvar */}
-      <button
-        onClick={onSave}
-        className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
-      >
-        <Save size={16} /> Salvar Template no Supabase
-      </button>
     </div>
   );
 }
