@@ -261,7 +261,7 @@ function CarteirinhaGenerator({
   onTemplateSelect?: (template: TemplateData) => void;
   onGenerate?: (template: TemplateData, dados: DadosCarteirinha) => Promise<void>;
 }) {
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateData | null>(propSelectedTemplate);
+  const [internalSelectedTemplate, setInternalSelectedTemplate] = useState<TemplateData | null>(propSelectedTemplate);
   const [dados, setDados] = useState<DadosCarteirinha>({
     nome: '',
     cpf: '',
@@ -270,10 +270,10 @@ function CarteirinhaGenerator({
   const [foto, setFoto] = useState<string | null>(null);
 
   const handleGenerateCard = async () => {
-    if (!selectedTemplate || !onGenerate) return;
+    if (!internalSelectedTemplate || !onGenerate) return;
     
     try {
-      await onGenerate(selectedTemplate, dados);
+      await onGenerate(internalSelectedTemplate, dados);
       alert('Carteirinha gerada com sucesso!');
     } catch (error) {
       console.error('Erro ao gerar carteirinha:', error);
@@ -623,9 +623,9 @@ export default function App() {
             
             <CarteirinhaGenerator
               templates={savedTemplates}
-              selectedTemplate={selectedTemplate}
+              selectedTemplate={internalSelectedTemplate}
               onTemplateSelect={(template) => {
-                setSelectedTemplate(template);
+                setInternalSelectedTemplate(template);
                 if (onTemplateSelect) {
                   onTemplateSelect(template);
                 }
