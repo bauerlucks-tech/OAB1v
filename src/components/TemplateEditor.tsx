@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, ZoomIn, ZoomOut, Move, Type, Image as ImageIcon, Trash2, Save } from 'lucide-react';
 import { saveTemplate } from '../services/templateService';
 
@@ -24,7 +24,11 @@ interface Template {
 
 type Side = 'front' | 'back';
 
-const TemplateEditor: React.FC = () => {
+interface TemplateEditorProps {
+  onSave?: () => void;
+}
+
+const TemplateEditor: React.FC<TemplateEditorProps> = ({ onSave }) => {
   // Estados principais
   const [template, setTemplate] = useState<Template>({
     id: '',
@@ -47,6 +51,13 @@ const TemplateEditor: React.FC = () => {
   
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  // Cleanup do elemento temporário ao desmontar
+  useEffect(() => {
+    return () => {
+      document.getElementById('temp-field')?.remove();
+    };
+  }, []);
+
   // Campos atuais baseados no lado selecionado
   const currentFields = currentSide === 'front' ? template.frontFields : template.backFields;
   const currentImage = currentSide === 'front' ? template.frontImage : template.backImage;
@@ -56,6 +67,16 @@ const TemplateEditor: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validação de tipo e tamanho
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecione apenas arquivos de imagem');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Imagem muito grande. Máximo 5MB');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const imageUrl = event.target?.result as string;
@@ -63,6 +84,9 @@ const TemplateEditor: React.FC = () => {
         ...prev,
         [side === 'front' ? 'frontImage' : 'backImage']: imageUrl
       }));
+    };
+    reader.onerror = () => {
+      alert('Erro ao ler o arquivo');
     };
     reader.readAsDataURL(file);
   }, []);
@@ -226,7 +250,9 @@ const TemplateEditor: React.FC = () => {
       
       // Opcional: redirecionar para a lista de templates
       if (confirm('Template salvo com sucesso! Deseja voltar para a lista de templates?')) {
-        window.location.href = '/';
+        if (onSave) {
+          onSave();
+        }
       }
       
     } catch (error: any) {

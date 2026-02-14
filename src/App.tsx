@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
+import { Template } from './types/template';
 import TemplateEditor from './components/TemplateEditor';
 import CardGenerator from './components/CardGenerator';
 import { getAllTemplates, saveCard } from './services/templateService';
-import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -50,16 +51,6 @@ class ErrorBoundary extends React.Component<
 
     return this.props.children;
   }
-}
-
-// Importar tipos
-interface Template {
-  id: string;
-  name: string;
-  frontImage: string;
-  backImage: string | null;
-  frontFields: any[];
-  backFields: any[];
 }
 
 type View = 'list' | 'editor' | 'generator';
@@ -267,7 +258,7 @@ const App: React.FC = () => {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <TemplateEditor />
+        <TemplateEditor onSave={() => setView('list')} />
       </main>
     </div>
   );

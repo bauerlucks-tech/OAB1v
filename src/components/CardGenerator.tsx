@@ -108,7 +108,7 @@ const CardGenerator: React.FC<CardGeneratorProps> = ({ template, data, onGenerat
   };
 
   useEffect(() => {
-    generateCard('front');
+    generateCard('front').catch(console.error);
   }, [template, data]);
 
   return (

@@ -1,16 +1,6 @@
 // services/templateService.ts
-import { createClient } from '@supabase/supabase-js';
-import type { Template, TemplateDB } from '../types/template';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Validar se as credenciais estão configuradas
-if (!supabaseUrl || !supabaseKey) {
-  console.warn('Credenciais do Supabase não configuradas. Usando modo demo.');
-}
-
-export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+import { Template, TemplateDB } from '../types/template';
+import { supabase } from '../lib/supabase';
 
 // Converter do formato do app para o DB - ESTRUTURA REAL
 const toDBFormat = (template: Template) => ({
@@ -67,7 +57,7 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
     height: field.h,
     label: field.name
   })),
-  backFields: (dbTemplate.data.versoCampos || []).map(field => ({
+  backFields: (dbTemplate.data?.versoCampos || []).map(field => ({
     id: field.id,
     type: field.type === 'foto' ? 'photo' : 'text',
     x: field.x,
