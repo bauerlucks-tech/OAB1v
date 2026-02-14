@@ -1744,7 +1744,7 @@ type DadosCarteirinha = {
 
 export default function App() {
   const [mode, setMode] = useState<'user' | 'admin'>('user');
-  const [adminTab, setAdminTab] = useState<'create' | 'saved' | 'generate'>('create');
+  const [adminTab, setAdminTab] = useState<'templates' | 'create' | 'generate'>('templates');
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [currentTemplate, setCurrentTemplate] = useState<TemplateData>({
     id: Date.now().toString(),
@@ -1892,6 +1892,16 @@ export default function App() {
               <div className="border-b border-gray-200 mb-6">
                 <nav className="-mb-px flex space-x-8">
                   <button
+                    onClick={() => setAdminTab('templates')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                      adminTab === 'templates'
+                        ? 'border-green-500 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    📁 Templates Prontos
+                  </button>
+                  <button
                     onClick={() => setAdminTab('create')}
                     className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
                       adminTab === 'create'
@@ -1899,17 +1909,7 @@ export default function App() {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Criar Template
-                  </button>
-                  <button
-                    onClick={() => setAdminTab('saved')}
-                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
-                      adminTab === 'saved'
-                        ? 'border-green-500 text-green-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    Templates Salvos
+                    🛠️ Gerar Templates
                   </button>
                   <button
                     onClick={() => setAdminTab('generate')}
@@ -1919,59 +1919,69 @@ export default function App() {
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
-                    Gerar Carteira
+                    📸 Emitir Documentos
                   </button>
                 </nav>
               </div>
 
               {/* Conteúdo das abas */}
               <div className="mt-4">
-                {adminTab === 'create' && (
+                {adminTab === 'templates' && (
                   <div>
-                    <div className="mb-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Template</label>
-                      <input
-                        type="text"
-                        value={currentTemplate.name}
-                        onChange={(e) => setCurrentTemplate({...currentTemplate, name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        placeholder="Nome do template"
-                      />
-                    </div>
-                    <TemplateEditor
-                      template={currentTemplate}
-                      onTemplateChange={setCurrentTemplate}
-                      onSave={salvarTemplateAdmin}
-                    />
-                  </div>
-                )}
-
-                {adminTab === 'saved' && (
-                  <div>
-                    <h3 className="font-bold text-lg mb-4">Templates Salvos</h3>
-                    <div className="space-y-2">
+                    <h3 className="font-bold text-lg mb-4">📁 Templates Prontos</h3>
+                    <p className="text-gray-600 mb-6">Templates já configurados com frente, verso e campos prontos para uso</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       {savedTemplates.length === 0 ? (
-                        <p className="text-sm text-gray-500 italic">Nenhum template salvo</p>
+                        <div className="col-span-full text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                          <p className="text-gray-500">Nenhum template pronto encontrado</p>
+                          <button 
+                            onClick={() => setAdminTab('create')}
+                            className="mt-4 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                          >
+                            Criar Novo Template
+                          </button>
+                        </div>
                       ) : (
                         savedTemplates.map((t) => (
-                          <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
-                            <span className="text-sm font-medium">{t.name}</span>
+                          <div key={t.id} className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
+                            <div className="aspect-video mb-4 bg-gray-100 rounded-lg overflow-hidden">
+                              {t.data.frenteImg && (
+                                <img 
+                                  src={t.data.frenteImg} 
+                                  alt={t.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                            </div>
+                            <h4 className="font-medium text-lg mb-2">{t.name}</h4>
+                            <div className="text-sm text-gray-600 mb-4">
+                              <p>📝 {t.data.frenteCampos.length} campos configurados</p>
+                              <p>🖼️ {t.data.frenteImg && t.data.versoImg ? 'Frente e Verso' : 'Apenas Frente'}</p>
+                            </div>
                             <div className="flex space-x-2">
+                              <button 
+                                onClick={() => {
+                                  setCurrentTemplate(t.data);
+                                  setMode('user');
+                                }}
+                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                              >
+                                📸 Usar Template
+                              </button>
                               <button 
                                 onClick={() => {
                                   setCurrentTemplate(t.data);
                                   setAdminTab('create');
                                 }}
-                                className="text-green-600 hover:text-green-800 text-sm font-medium"
+                                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
                               >
-                                Editar
+                                ✏️ Editar
                               </button>
                               <button 
                                 onClick={() => deleteTemplate(t.id)}
-                                className="text-red-500 hover:text-red-700"
-                                title="Excluir template"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
                               >
-                                <Trash2 size={14} />
+                                🗑️ Excluir
                               </button>
                             </div>
                           </div>
@@ -1981,20 +1991,69 @@ export default function App() {
                   </div>
                 )}
 
+                {adminTab === 'create' && (
+                  <div>
+                    <h3 className="font-bold text-lg mb-4">🛠️ Gerar Templates</h3>
+                    <p className="text-gray-600 mb-6">Configure templates com upload de imagens e posicionamento de campos</p>
+                    <TemplateEditor
+                      template={currentTemplate}
+                      onTemplateChange={setCurrentTemplate}
+                      onSave={salvarTemplateAdmin}
+                    />
+                  </div>
+                )}
+
                 {adminTab === 'generate' && (
                   <div>
-                    <h3 className="font-bold text-lg mb-4">Gerar Carteira</h3>
-                    <p className="text-gray-600">Selecione um template na aba "Templates Salvos" para gerar uma carteira.</p>
+                    <h3 className="font-bold text-lg mb-4">📸 Emitir Documentos</h3>
+                    <p className="text-gray-600 mb-6">Upload separado de frente/verso e preenchimento de dados</p>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div>
+                        <h4 className="font-medium mb-4">Upload de Imagens</h4>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">📷 Imagem da Frente</label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">📷 Imagem do Verso</label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-4">Preview e Marcação</h4>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                          <p className="text-gray-500 text-center">Carregue as imagens para visualizar o preview</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <CarteirinhaGenerator
-              templates={savedTemplates}
-              selectedTemplate={null}
-              onTemplateSelect={() => {}}
-            />
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <h2 className="text-2xl font-bold text-center mb-8 text-slate-800">
+                📸 Modo de Emissão - Templates Prontos
+              </h2>
+              <p className="text-center text-slate-600 mb-8">
+                Selecione um template pronto para emitir documentos
+              </p>
+              <CarteirinhaGenerator
+                templates={savedTemplates}
+                selectedTemplate={null}
+                onTemplateSelect={() => {}}
+              />
+            </div>
           )}
         </div>
       </main>
