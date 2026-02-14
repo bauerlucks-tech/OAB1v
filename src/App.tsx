@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import TemplateEditor from './components/TemplateEditor';
+import CardGenerator from './components/CardGenerator';
 import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 
 // Dados mock para teste
@@ -36,8 +37,15 @@ const mockTemplates = [
 type View = 'list' | 'editor' | 'generator';
 
 const AppSimple: React.FC = () => {
+  console.log('AppSimple: renderizando...');
   const [view, setView] = useState<View>('list');
   const [templates] = useState(mockTemplates);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [cardData, setCardData] = useState<any>({
+    templateId: '',
+    fields: {},
+    photoUrl: ''
+  });
 
   // Criar novo template
   const handleNewTemplate = () => {
@@ -45,12 +53,20 @@ const AppSimple: React.FC = () => {
   };
 
   // Editar template
-  const handleEditTemplate = (_template: any) => {
+  const handleEditTemplate = (template: any) => {
+    setSelectedTemplate(template);
     setView('editor');
   };
 
   // Gerar carteirinha
-  const handleGenerateCard = (_template: any) => {
+  const handleGenerateCard = (template: any) => {
+    console.log('handleGenerateCard: template=', template);
+    setSelectedTemplate(template);
+    setCardData({
+      templateId: template.id,
+      fields: {},
+      photoUrl: ''
+    });
     setView('generator');
   };
 
@@ -169,21 +185,102 @@ const AppSimple: React.FC = () => {
     <TemplateEditor />
   );
 
-  // Renderizar gerador (placeholder)
-  const renderGenerator = () => (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold mb-4">Gerador de Carteirinhas</h2>
-        <p className="text-gray-600 mb-6">Funcionalidade em desenvolvimento</p>
-        <button
-          onClick={() => setView('list')}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
-        >
-          Voltar
-        </button>
-      </div>
+  // Renderizar gerador
+  const renderGenerator = () => {
+    console.log('renderGenerator: selectedTemplate=', selectedTemplate);
+    console.log('renderGenerator: cardData=', cardData);
+    
+    return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Printer className="w-8 h-8 text-green-500" />
+              <h1 className="text-2xl font-bold">Gerador de Carteirinhas</h1>
+            </div>
+            <button
+              onClick={() => setView('list')}
+              className="px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium transition-colors"
+            >
+              Voltar
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div>
+            <h2 className="text-2xl font-bold mb-6">Dados da Carteirinha</h2>
+            
+            {selectedTemplate && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="font-semibold text-lg mb-4">{selectedTemplate.name}</h3>
+                
+                <div className="space-y-4">
+                  {[...selectedTemplate.frontFields, ...selectedTemplate.backFields].map((field: any) => (
+                    <div key={field.id}>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {field.label}
+                      </label>
+                      
+                      {field.type === 'photo' ? (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                setCardData((prev: any) => ({
+                                  ...prev,
+                                  photoUrl: event.target?.result as string
+                                }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={cardData.fields[field.id] || ''}
+                          onChange={(e) => setCardData((prev: any) => ({
+                            ...prev,
+                            fields: {
+                              ...prev.fields,
+                              [field.id]: e.target.value
+                            }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder={`Digite ${field.label.toLowerCase()}`}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <h2 className="text-2xl font-bold mb-6">Preview</h2>
+            {selectedTemplate && (
+              <CardGenerator
+                template={selectedTemplate}
+                data={cardData}
+                onGenerate={(url) => console.log('Carteirinha gerada:', url)}
+              />
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
+  };
 
   // Renderizar view principal
   switch (view) {
