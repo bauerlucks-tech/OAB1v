@@ -284,16 +284,19 @@ const App: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <TemplateEditorAdvanced 
           template={selectedTemplate}
-          onChange={async (updatedTemplate) => {
-            try {
-              await handleSaveTemplate(updatedTemplate);
-            } catch (error) {
-              // Erro já tratado em handleSaveTemplate
-            }
+          onChange={(updatedTemplate) => {
+            setSelectedTemplate(updatedTemplate); // Apenas atualizar estado local
           }}
-          onSave={() => {
-            setSelectedTemplate(null); // Resetar
-            setView('list');
+          onSave={async () => {
+            if (selectedTemplate) {
+              try {
+                await handleSaveTemplate(selectedTemplate);
+                setSelectedTemplate(null); // Resetar
+                setView('list');
+              } catch (error) {
+                // Erro já tratado em handleSaveTemplate
+              }
+            }
           }} 
         />
       </main>
