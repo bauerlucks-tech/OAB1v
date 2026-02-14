@@ -1,51 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TemplateEditor from './components/TemplateEditor';
 import CardGenerator from './components/CardGenerator';
+import { getAllTemplates } from './services/templateService';
 import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 
-// Dados mock para teste
-const mockTemplates = [
-  {
-    id: 'demo-1',
-    name: 'OAB Demo Template',
-    frontImage: '',
-    backImage: null,
-    frontFields: [
-      {
-        id: 'field-1',
-        type: 'text' as const,
-        x: 100,
-        y: 50,
-        width: 300,
-        height: 40,
-        label: 'Nome Completo'
-      },
-      {
-        id: 'field-2',
-        type: 'photo' as const,
-        x: 50,
-        y: 100,
-        width: 200,
-        height: 250,
-        label: 'Foto 3x4'
-      }
-    ],
-    backFields: []
-  }
-];
+// Importar tipos
+interface Template {
+  id: string;
+  name: string;
+  frontImage: string;
+  backImage: string | null;
+  frontFields: any[];
+  backFields: any[];
+}
 
 type View = 'list' | 'editor' | 'generator';
 
 const AppSimple: React.FC = () => {
   console.log('AppSimple: renderizando...');
   const [view, setView] = useState<View>('list');
-  const [templates] = useState(mockTemplates);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [cardData, setCardData] = useState<any>({
     templateId: '',
     fields: {},
     photoUrl: ''
   });
+  const [loading, setLoading] = useState(false);
+
+  // Carregar templates do Supabase
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+    console.log('loadTemplates: carregando do Supabase...');
+    setLoading(true);
+    try {
+      const data = await getAllTemplates();
+      console.log('loadTemplates: dados recebidos:', data);
+      setTemplates(data);
+    } catch (error: any) {
+      console.error('Erro ao carregar templates:', error);
+      alert('Erro ao carregar templates: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Criar novo template
   const handleNewTemplate = () => {
@@ -53,13 +54,13 @@ const AppSimple: React.FC = () => {
   };
 
   // Editar template
-  const handleEditTemplate = (template: any) => {
+  const handleEditTemplate = (template: Template) => {
     setSelectedTemplate(template);
     setView('editor');
   };
 
   // Gerar carteirinha
-  const handleGenerateCard = (template: any) => {
+  const handleGenerateCard = (template: Template) => {
     console.log('handleGenerateCard: template=', template);
     setSelectedTemplate(template);
     setCardData({
@@ -98,14 +99,15 @@ const AppSimple: React.FC = () => {
               <h2 className="text-3xl font-bold text-gray-900 mb-2">Templates Disponíveis</h2>
               <p className="text-gray-600">Gerencie seus templates de carteirinhas</p>
             </div>
-            <div className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
-              🚀 Modo Demo (Funcionando)
+            <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
+              �️ Supabase Conectado
             </div>
           </div>
 
-          {false ? (
+          {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+              <p className="ml-4 text-gray-600">Carregando templates...</p>
             </div>
           ) : templates.length === 0 ? (
             <div className="text-center py-12">
@@ -164,7 +166,12 @@ const AppSimple: React.FC = () => {
                       </button>
                       
                       <button
-                        onClick={() => alert('Delete functionality not implemented in demo')}
+                        onClick={() => {
+                          if (confirm('Tem certeza que deseja deletar este template?')) {
+                            // TODO: Implementar deleção quando TemplateEditor suportar
+                            alert('Funcionalidade de deletar será implementada no TemplateEditor');
+                          }
+                        }}
                         className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
                       >
                         <Trash2 size={16} />
