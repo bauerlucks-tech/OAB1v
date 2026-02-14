@@ -449,19 +449,9 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
       </div>
 
       {/* Conteúdo das Abas */}
-      {activeTab === 'criar' ? (
+      {activeTab === 'criar' && (
         <div className="space-y-6">
-          {/* Nome do Template */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Template</label>
-            <input
-              type="text"
-              value={template.name}
-              onChange={(e) => onTemplateChange({...template, name: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Nome do template"
-            />
-          </div>
+          {/* Campos do template serão exibidos aqui */}
 
           {/* Upload de Imagens */}
           <div className="grid grid-cols-2 gap-4">
@@ -958,11 +948,26 @@ function InteractivePreview({ template, dados, foto, onFieldClick, onFieldDataCh
 }
 
 // --- COMPONENTE GERADOR DE CARTEIRINHA ---
-function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }: {
+function CarteirinhaGenerator({ 
+  templates, 
+  selectedTemplate: propSelectedTemplate = null, 
+  onTemplateSelect, 
+  onGenerate 
+}: {
   templates: SavedTemplate[];
-  selectedTemplate: TemplateData | null;
-  onTemplateSelect: (template: TemplateData) => void;
+  selectedTemplate?: TemplateData | null;
+  onTemplateSelect?: (template: TemplateData) => void;
+  onGenerate?: (template: TemplateData, dados: DadosCarteirinha) => Promise<void>;
 }) {
+  // Estados principais
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateData | null>(propSelectedTemplate);
+  const [activeTab, setActiveTab] = useState<'criacao' | 'salvamento' | 'geracao' | 'historico'>('criacao');
+  
+  // Estados para criação
+  const [newTemplate, setNewTemplate] = useState<TemplateData | null>(null);
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+  
+  // Estados para geração
   const [dados, setDados] = useState<CarteirinhaData>({
     nome: '',
     cpf: '',
@@ -976,8 +981,11 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
-  const [previewData, setPreviewData] = useState<Record<string, string>>({});
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+  
+  // Estados para histórico
+  const [carteirinhasSalvas, setCarteirinhasSalvas] = useState<any[]>([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(false);
 
   const handleFotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1177,18 +1185,21 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
     setFieldValues(prev => ({ ...prev, [fieldId]: value }));
     
     // Atualizar dados principais se for um campo correspondente
-    const campo = selectedTemplate?.frenteCampos.find(c => c.id === fieldId);
-    if (campo) {
-      switch (campo.name.toLowerCase()) {
-        case 'nome':
-          setDados(prev => ({ ...prev, nome: value }));
-          break;
-        case 'cpf':
-          setDados(prev => ({ ...prev, cpf: value }));
-          break;
-        case 'oab':
-          setDados(prev => ({ ...prev, oab: value }));
-          break;
+    const template = selectedTemplate;
+    if (template) {
+      const campo = template.frenteCampos.find((c: Field) => c.id === fieldId);
+      if (campo) {
+        switch (campo.name.toLowerCase()) {
+          case 'nome':
+            setDados(prev => ({ ...prev, nome: value }));
+            break;
+          case 'cpf':
+            setDados(prev => ({ ...prev, cpf: value }));
+            break;
+          case 'oab':
+            setDados(prev => ({ ...prev, oab: value }));
+            break;
+        }
       }
     }
   };
@@ -1197,44 +1208,77 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
     setSelectedField(null);
   };
 
+  const handleTemplateSelect = (template: TemplateData) => {
+    setSelectedTemplate(template);
+    if (onTemplateSelect) {
+      onTemplateSelect(template);
+    }
+  };
+  
+  // Sync prop with internal state
+  useEffect(() => {
+    setSelectedTemplate(propSelectedTemplate);
+  }, [propSelectedTemplate]);
+  
+  // Carregar histórico de carteirinhas
+  const carregarHistorico = async () => {
+    setLoadingHistorico(true);
+    try {
+      const { data, error } = await supabase
+        .from('carteirinhas')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setCarteirinhasSalvas(data || []);
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+      alert('Erro ao carregar histórico de carteirinhas');
+    } finally {
+      setLoadingHistorico(false);
+    }
+  };
+  
+  // Carregar histórico quando mudar para aba de histórico
+  useEffect(() => {
+    if (activeTab === 'historico') {
+      carregarHistorico();
+    }
+  }, [activeTab]);
+
   const gerarCarteirinha = async () => {
     if (!selectedTemplate) {
-      alert('Selecione um template primeiro!');
+      alert('Selecione um template!');
       return;
     }
 
     if (!dados.nome || !dados.cpf || !dados.oab) {
-      alert('Preencha todos os dados!');
+      alert('Preencha todos os campos!');
       return;
     }
 
-    // Mapear dados para os campos
-    const campoDados: Record<string, string> = {
-      nome: dados.nome,
-      cpf: dados.cpf,
-      oab: dados.oab,
-      ...fieldValues // Adicionar valores dos campos editados
-    };
-
-    // Adicionar foto se existir
-    if (foto) {
-      campoDados.foto = foto;
-    }
-
     try {
-      // Salvar carteirinha no Supabase
-      await salvarCarteirinhaSupabase({
-        nome: dados.nome,
-        templateId: selectedTemplate.id,
-        templateName: selectedTemplate.name,
-        dados: campoDados,
-        fotos: foto ? [foto] : [],
-        frenteUrl: selectedTemplate.frenteImg,
-        versoUrl: selectedTemplate.versoImg,
-        emitidaEm: new Date().toISOString()
-      });
-
-      alert('Carteirinha salva com sucesso no Supabase!');
+      if (onGenerate) {
+        await onGenerate(selectedTemplate, {
+          ...dados,
+          foto: foto || ''
+        });
+      } else {
+        // Fallback para o comportamento antigo
+        await salvarCarteirinhaSupabase({
+          ...selectedTemplate,
+          dados: {
+            ...dados,
+            foto: foto || ''
+          },
+          templateName: selectedTemplate.name,
+          fotos: foto ? [foto] : [],
+          frenteUrl: selectedTemplate.frenteImg || '',
+          versoUrl: selectedTemplate.versoImg || '',
+          emitidaEm: new Date().toISOString()
+        });
+        alert('Carteirinha gerada com sucesso!');
+      }
     } catch (error) {
       console.error('Erro ao salvar carteirinha:', error);
       alert('Erro ao salvar carteirinha. Tente novamente.');
@@ -1244,7 +1288,7 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
   useEffect(() => {
     const novoPreview: Record<string, string> = {};
     if (selectedTemplate) {
-      selectedTemplate.frenteCampos.forEach(campo => {
+      selectedTemplate.frenteCampos.forEach((campo: Field) => {
         if (campo.type === 'texto') {
           switch (campo.name.toLowerCase()) {
             case 'nome':
@@ -1269,140 +1313,289 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
 
   return (
     <div className="space-y-6">
-      {/* Dados da Carteirinha */}
-      {selectedTemplate && (
+      {/* Navegação por Abas */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('criacao')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'criacao'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Plus size={16} className="inline mr-2" />
+            Criação
+          </button>
+          <button
+            onClick={() => setActiveTab('salvamento')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'salvamento'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Save size={16} className="inline mr-2" />
+            Salvamento
+          </button>
+          <button
+            onClick={() => setActiveTab('geracao')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'geracao'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Printer size={16} className="inline mr-2" />
+            Geração
+          </button>
+          <button
+            onClick={() => setActiveTab('historico')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'historico'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Settings size={16} className="inline mr-2" />
+            Histórico
+          </button>
+        </nav>
+      </div>
+
+      {/* Conteúdo das Abas */}
+      {activeTab === 'criacao' && (
         <div>
-          <h3 className="font-bold text-lg mb-4">Dados da Carteirinha</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
-              <input
-                type="text"
-                value={dados.nome}
-                onChange={(e) => setDados({ ...dados, nome: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="Digite o nome completo"
-              />
-            </div>
+          <h3 className="font-bold text-lg mb-4">Criação de Templates</h3>
+          <TemplateEditor
+            template={newTemplate || {
+              id: '',
+              name: '',
+              frenteImg: null,
+              versoImg: null,
+              frenteCampos: [],
+              versoCampos: []
+            }}
+            onTemplateChange={setNewTemplate}
+            onSave={async () => {
+              if (newTemplate) {
+                await salvarTemplateSupabase(newTemplate, newTemplate.frenteImg || '', newTemplate.versoImg || '', newTemplate.frenteCampos);
+                alert('Template salvo com sucesso!');
+                setNewTemplate(null);
+              }
+            }}
+          />
+        </div>
+      )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
-              <input
-                type="text"
-                value={dados.cpf}
-                onChange={(e) => setDados({ ...dados, cpf: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="000.000.000-00"
-              />
+      {activeTab === 'salvamento' && (
+        <div>
+          <h3 className="font-bold text-lg mb-4">Templates Salvos</h3>
+          {templates.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">Nenhum template salvo ainda</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {templates.map((template) => (
+                <div key={template.id} className="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h4 className="font-medium">{template.name}</h4>
+                    <button
+                      onClick={() => handleTemplateSelect(template.data)}
+                      className="text-green-600 hover:text-green-700 text-sm"
+                    >
+                      Usar
+                    </button>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <p>{template.data.frenteCampos.length} campos na frente</p>
+                    <p>{template.data.versoCampos.length} campos no verso</p>
+                    <p className="text-xs mt-1">Criado em: {new Date(template.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+        </div>
+      )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">OAB/UF</label>
-              <input
-                type="text"
-                value={dados.oab}
-                onChange={(e) => setDados({ ...dados, oab: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="123456/SP"
-              />
-            </div>
+      {activeTab === 'geracao' && (
+        <div>
+          <h3 className="font-bold text-lg mb-4">Geração de Carteirinhas</h3>
+          
+          {/* Seleção de Template */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Template Selecionado</label>
+            {selectedTemplate ? (
+              <div className="border rounded-lg p-4 bg-green-50">
+                <p className="font-medium">{selectedTemplate.name}</p>
+                <button
+                  onClick={() => setSelectedTemplate(null)}
+                  className="text-red-600 hover:text-red-700 text-sm mt-2"
+                >
+                  Alterar Template
+                </button>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <p className="text-gray-500">Nenhum template selecionado</p>
+                <button
+                  onClick={() => setActiveTab('salvamento')}
+                  className="mt-2 text-green-600 hover:text-green-700"
+                >
+                  Selecionar Template
+                </button>
+              </div>
+            )}
+          </div>
 
-            {/* Verificar se existe campo de foto no template */}
-            {selectedTemplate.frenteCampos.some(c => c.type === 'foto') && (
+          {/* Dados da Carteirinha */}
+          {selectedTemplate && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo</label>
+                <input
+                  type="text"
+                  value={dados.nome}
+                  onChange={(e) => setDados({ ...dados, nome: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Digite o nome completo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">CPF</label>
+                <input
+                  type="text"
+                  value={dados.cpf}
+                  onChange={(e) => setDados({ ...dados, cpf: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="000.000.000-00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">OAB/UF</label>
+                <input
+                  type="text"
+                  value={dados.oab}
+                  onChange={(e) => setDados({ ...dados, oab: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="12345/UF"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Foto</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFotoUpload}
-                  className="text-xs w-full"
-                />
-                {foto && (
-                  <div className="mt-2 space-y-2">
-                    <img
-                      src={foto}
-                      alt="Foto"
-                      className="w-24 h-24 object-cover rounded border"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setImageToCrop(foto);
-                          setShowCropper(true);
-                        }}
-                        className="flex items-center gap-2 px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-                      >
-                        <Scissors size={14} />
-                        Cortar
-                      </button>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFotoUpload}
+                    className="w-full text-sm"
+                  />
+                  {foto && (
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={foto}
+                        alt="Preview"
+                        className="w-20 h-20 object-cover rounded border"
+                      />
                       <button
                         onClick={enhancePhotoWithAI}
                         disabled={isProcessingAI}
-                        className="flex items-center gap-2 px-3 py-1 bg-amber-500 text-white rounded text-sm hover:bg-amber-600 disabled:bg-gray-400"
+                        className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg disabled:opacity-50 flex items-center gap-1"
                       >
                         <Sparkles size={14} />
-                        {isProcessingAI ? 'Processando...' : 'IA'}
+                        {isProcessingAI ? 'Processando...' : 'Melhorar com IA'}
                       </button>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            )}
 
-            {/* Preview Interativo */}
-            <InteractivePreview
-              template={selectedTemplate}
-              dados={dados}
-              foto={foto}
-              onFieldClick={handleFieldClick}
-              onFieldDataChange={handleFieldDataChange}
-            />
+              {/* Preview Interativo */}
+              <InteractivePreview
+                template={selectedTemplate}
+                dados={dados}
+                foto={foto}
+                onFieldClick={handleFieldClick}
+                onFieldDataChange={handleFieldDataChange}
+              />
 
-            {/* Modal de Corte de Foto */}
-      {showCropper && imageToCrop && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Cortar Foto</h3>
-              <button 
-                onClick={handleCropCancel}
-                className="text-gray-500 hover:text-gray-700"
+              {/* Botão Gerar */}
+              <button
+                onClick={gerarCarteirinha}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
               >
-                ✕
+                <Printer size={16} /> Gerar Carteirinha
               </button>
             </div>
-            
+          )}
+        </div>
+      )}
+
+      {activeTab === 'historico' && (
+        <div>
+          <h3 className="font-bold text-lg mb-4">Histórico de Carteirinhas</h3>
+          {loadingHistorico ? (
+            <p className="text-gray-500 text-center py-8">Carregando histórico...</p>
+          ) : carteirinhasSalvas.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">Nenhuma carteirinha gerada ainda</p>
+          ) : (
+            <div className="space-y-4">
+              {carteirinhasSalvas.map((carteirinha) => (
+                <div key={carteirinha.id} className="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-medium">{carteirinha.dados?.nome || 'Sem nome'}</h4>
+                      <p className="text-sm text-gray-600">OAB: {carteirinha.dados?.oab || 'N/A'}</p>
+                      <p className="text-sm text-gray-600">CPF: {carteirinha.dados?.cpf || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Emitida em: {new Date(carteirinha.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {carteirinha.fotos && carteirinha.fotos.length > 0 && (
+                        <img
+                          src={carteirinha.fotos[0]}
+                          alt="Carteirinha"
+                          className="w-16 h-16 object-cover rounded border"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal de Recorte */}
+      {showCropper && imageToCrop && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 max-w-2xl w-full mx-4">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold">Recortar Foto</h3>
+              <p className="text-sm text-gray-600">Ajuste o recorte da foto</p>
+            </div>
             <div className="relative h-96 mb-4">
               <Cropper
                 image={imageToCrop}
                 crop={crop}
                 zoom={zoom}
-                aspect={1}
+                aspect={3/4}
                 onCropChange={setCrop}
                 onCropComplete={onCropComplete}
                 onZoomChange={setZoom}
               />
             </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Zoom</label>
-              <input
-                type="range"
-                value={zoom}
-                min={1}
-                max={3}
-                step={0.1}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full"
-              />
-            </div>
-            
             <div className="flex gap-2">
               <button
                 onClick={handleCropConfirm}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 px-4 rounded font-medium"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium"
               >
-                Confirmar Corte
+                Confirmar
               </button>
               <button
                 onClick={handleCropCancel}
@@ -1415,23 +1608,20 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
         </div>
       )}
 
-      {/* Gerar Documento Button */}
-      <button
-        onClick={gerarCarteirinha}
-        className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-bold flex justify-center items-center gap-2 shadow-md transition-all hover:shadow-lg"
-      >
-        <Printer size={16} /> Gerar Documento
-      </button>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
   );
 }
 
-// --- TELA PRINCIPAL ---
+type DadosCarteirinha = {
+  nome: string;
+  cpf: string;
+  oab: string;
+  foto?: string;
+};
+
 export default function App() {
-  const [mode, setMode] = useState<'admin' | 'gerador'>('admin');
+  const [mode, setMode] = useState<'user' | 'admin'>('user');
+  const [adminTab, setAdminTab] = useState<'create' | 'saved' | 'generate'>('create');
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
   const [currentTemplate, setCurrentTemplate] = useState<TemplateData>({
     id: Date.now().toString(),
@@ -1501,6 +1691,24 @@ export default function App() {
     }
   };
 
+  const handleGenerateCard = async (template: TemplateData, dados: DadosCarteirinha) => {
+    try {
+      await salvarCarteirinhaSupabase({
+        ...template,
+        dados,
+        templateName: template.name,
+        fotos: dados.foto ? [dados.foto] : [],
+        frenteUrl: template.frenteImg || '',
+        versoUrl: template.versoImg || '',
+        emitidaEm: new Date().toISOString()
+      });
+      alert('Carteirinha gerada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar carteirinha:', error);
+      alert('Erro ao gerar carteirinha. Tente novamente.');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col font-sans bg-slate-50">
       {/* HEADER JUSTIÇA STYLE */}
@@ -1531,9 +1739,9 @@ export default function App() {
                 <Settings size={16} /> Criar Template
               </button>
               <button 
-                onClick={() => setMode('gerador')}
+                onClick={() => setMode('user')}
                 className={`px-6 py-3 rounded-md flex items-center gap-2 text-sm font-medium transition-all ${
-                  mode === 'gerador'
+                  mode === 'user'
                     ? 'bg-amber-500 text-slate-900 shadow-md'
                     : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
                 }`}
@@ -1557,53 +1765,105 @@ export default function App() {
                 Configure templates para emissão de documentos oficiais com editor visual completo
               </p>
               
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Templates Salvos */}
-                <div className="lg:col-span-1">
-                  <h3 className="font-bold text-lg mb-4">Templates Salvos</h3>
-                  <div className="space-y-2">
-                    {savedTemplates.length === 0 ? (
-                      <p className="text-sm text-gray-500 italic">Nenhum template salvo</p>
-                    ) : (
-                      savedTemplates.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
-                          <button 
-                            onClick={() => setCurrentTemplate(t.data)}
-                            className="flex-1 text-left text-sm font-medium hover:text-green-700"
-                          >
-                            {t.name}
-                          </button>
-                          <button 
-                            onClick={() => deleteTemplate(t.id)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                
-                {/* Editor */}
-                <div className="lg:col-span-2">
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Template</label>
-                    <input
-                      type="text"
-                      value={currentTemplate.name}
-                      onChange={(e) => setCurrentTemplate({...currentTemplate, name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="Nome do template"
+              {/* Abas */}
+              <div className="border-b border-gray-200 mb-6">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setAdminTab('create')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                      adminTab === 'create'
+                        ? 'border-green-500 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Criar Template
+                  </button>
+                  <button
+                    onClick={() => setAdminTab('saved')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                      adminTab === 'saved'
+                        ? 'border-green-500 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Templates Salvos
+                  </button>
+                  <button
+                    onClick={() => setAdminTab('generate')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                      adminTab === 'generate'
+                        ? 'border-green-500 text-green-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Gerar Carteira
+                  </button>
+                </nav>
+              </div>
+
+              {/* Conteúdo das abas */}
+              <div className="mt-4">
+                {adminTab === 'create' && (
+                  <div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Nome do Template</label>
+                      <input
+                        type="text"
+                        value={currentTemplate.name}
+                        onChange={(e) => setCurrentTemplate({...currentTemplate, name: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Nome do template"
+                      />
+                    </div>
+                    <TemplateEditor
+                      template={currentTemplate}
+                      onTemplateChange={setCurrentTemplate}
+                      onSave={salvarTemplateAdmin}
                     />
                   </div>
-                  
-                  <TemplateEditor
-                    template={currentTemplate}
-                    onTemplateChange={setCurrentTemplate}
-                    onSave={salvarTemplateAdmin}
+                )}
+
+                {adminTab === 'saved' && (
+                  <div>
+                    <h3 className="font-bold text-lg mb-4">Templates Salvos</h3>
+                    <div className="space-y-2">
+                      {savedTemplates.length === 0 ? (
+                        <p className="text-sm text-gray-500 italic">Nenhum template salvo</p>
+                      ) : (
+                        savedTemplates.map((t) => (
+                          <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                            <span className="text-sm font-medium">{t.name}</span>
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => {
+                                  setCurrentTemplate(t.data);
+                                  setAdminTab('create');
+                                }}
+                                className="text-green-600 hover:text-green-800 text-sm font-medium"
+                              >
+                                Editar
+                              </button>
+                              <button 
+                                onClick={() => deleteTemplate(t.id)}
+                                className="text-red-500 hover:text-red-700"
+                                title="Excluir template"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {adminTab === 'generate' && (
+                  <CarteirinhaGenerator
+                    templates={savedTemplates}
+                    onGenerate={handleGenerateCard}
                   />
-                </div>
+                )}
               </div>
             </div>
           ) : (
