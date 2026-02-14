@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Upload, ZoomIn, ZoomOut, Move, Type, Image as ImageIcon, Trash2, Save } from 'lucide-react';
+import { saveTemplate } from '../services/templateService';
 
 // Tipos
 interface Field {
@@ -191,10 +192,47 @@ const TemplateEditor: React.FC = () => {
   };
 
   // Salvar template
-  const saveTemplate = async () => {
+  const saveTemplateHandler = async () => {
     console.log('Salvando template:', template);
-    // Aqui você faria a chamada para o Supabase
-    alert('Template salvo! (Integrar com Supabase)');
+    
+    // Validar dados do template
+    if (!template.name.trim()) {
+      alert('Por favor, digite um nome para o template');
+      return;
+    }
+    
+    if (!template.frontImage) {
+      alert('Por favor, adicione uma imagem para a frente da carteirinha');
+      return;
+    }
+    
+    try {
+      // Gerar ID único se não existir
+      const templateToSave = {
+        ...template,
+        id: template.id || `template_${Date.now()}`,
+        name: template.name.trim(),
+        frontFields: template.frontFields || [],
+        backFields: template.backFields || []
+      };
+      
+      console.log('Enviando template para Supabase:', templateToSave);
+      
+      // Salvar no Supabase
+      const savedTemplate = await saveTemplate(templateToSave);
+      
+      console.log('Template salvo com sucesso:', savedTemplate);
+      alert('Template salvo com sucesso!');
+      
+      // Opcional: redirecionar para a lista de templates
+      if (confirm('Template salvo com sucesso! Deseja voltar para a lista de templates?')) {
+        window.location.href = '/';
+      }
+      
+    } catch (error: any) {
+      console.error('Erro ao salvar template:', error);
+      alert('Erro ao salvar template: ' + error.message);
+    }
   };
 
   return (
@@ -402,7 +440,7 @@ const TemplateEditor: React.FC = () => {
 
           {/* Botão de salvar */}
           <button
-            onClick={saveTemplate}
+            onClick={saveTemplateHandler}
             className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-medium"
           >
             <Save size={20} />

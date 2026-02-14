@@ -85,11 +85,8 @@ const App: React.FC = () => {
     console.log('loadTemplates: carregando do Supabase...');
     setLoading(true);
     try {
-      console.log('loadTemplates: chamando getAllTemplates...');
       const data = await getAllTemplates();
       console.log('loadTemplates: dados recebidos:', data);
-      console.log('loadTemplates: tipo de dados:', typeof data);
-      console.log('loadTemplates: é array?', Array.isArray(data));
       
       if (Array.isArray(data)) {
         console.log('loadTemplates: quantidade de templates:', data.length);
@@ -100,9 +97,7 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Erro ao carregar templates:', error);
-      console.error('Detalhes do erro:', error.message, error.stack);
-      console.error('Tipo do erro:', typeof error);
-      alert('Erro ao carregar templates: ' + error.message);
+      // Simplificar tratamento de erro para evitar loops
       setTemplates([]);
     } finally {
       setLoading(false);
@@ -142,8 +137,17 @@ const App: React.FC = () => {
               <FileText className="w-8 h-8 text-green-500" />
               <h1 className="text-2xl font-bold">Sistema OAB v3 - Producao</h1>
             </div>
-            <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
-              🗄️ Supabase Conectado
+            <div className="flex items-center gap-4">
+              <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
+                🗄️ Supabase Conectado
+              </div>
+              <button
+                onClick={handleNewTemplate}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
+              >
+                <Plus size={20} />
+                Criar Novo Template
+              </button>
             </div>
           </div>
         </div>
