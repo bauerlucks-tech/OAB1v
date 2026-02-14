@@ -77,6 +77,7 @@ const App: React.FC = () => {
 
   // Carregar templates do Supabase
   useEffect(() => {
+    console.log('App: useEffect iniciado');
     loadTemplates();
   }, []);
 
@@ -84,13 +85,25 @@ const App: React.FC = () => {
     console.log('loadTemplates: carregando do Supabase...');
     setLoading(true);
     try {
+      console.log('loadTemplates: chamando getAllTemplates...');
       const data = await getAllTemplates();
       console.log('loadTemplates: dados recebidos:', data);
-      setTemplates(data);
+      console.log('loadTemplates: tipo de dados:', typeof data);
+      console.log('loadTemplates: é array?', Array.isArray(data));
+      
+      if (Array.isArray(data)) {
+        console.log('loadTemplates: quantidade de templates:', data.length);
+        setTemplates(data);
+      } else {
+        console.error('loadTemplates: dados não é um array:', data);
+        setTemplates([]);
+      }
     } catch (error: any) {
       console.error('Erro ao carregar templates:', error);
       console.error('Detalhes do erro:', error.message, error.stack);
+      console.error('Tipo do erro:', typeof error);
       alert('Erro ao carregar templates: ' + error.message);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -232,7 +245,27 @@ const App: React.FC = () => {
 
   // Renderizar editor
   const renderEditor = () => (
-    <TemplateEditor />
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-slate-900 text-white">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <FileText className="w-8 h-8 text-green-500" />
+              <h1 className="text-2xl font-bold">Editor de Templates</h1>
+            </div>
+            <button
+              onClick={() => setView('list')}
+              className="px-6 py-3 bg-gray-600 hover:bg-gray-700 rounded-lg font-medium transition-colors"
+            >
+              Voltar ao Menu
+            </button>
+          </div>
+        </div>
+      </header>
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <TemplateEditor />
+      </main>
+    </div>
   );
 
   // Renderizar gerador
@@ -336,6 +369,11 @@ const App: React.FC = () => {
                         url
                       );
                       alert('Carteirinha salva com sucesso!');
+                      
+                      // Perguntar se deseja voltar ao menu
+                      if (confirm('Carteirinha salva com sucesso! Deseja voltar ao menu principal?')) {
+                        setView('list');
+                      }
                     } catch (error: any) {
                       console.error('Erro ao salvar carteirinha:', error);
                       alert('Erro ao salvar carteirinha: ' + error.message);
