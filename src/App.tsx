@@ -1262,6 +1262,10 @@ function CarteirinhaGenerator({ templates, selectedTemplate, onTemplateSelect }:
         } else if (campo.type === 'foto') {
           novoPreview[campo.id] = foto || '';
         }
+      });
+    }
+    setFieldValues(novoPreview);
+  }, [template, dados, foto]);
 
   return (
     <div className="space-y-6">
