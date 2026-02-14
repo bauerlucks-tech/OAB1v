@@ -674,15 +674,13 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                       <img
                         src={activeSide === 'frente' ? template.frenteImg || '' : template.versoImg || ''}
                         alt={`Imagem ${activeSide === 'frente' ? 'Frente' : 'Verso'}`}
-                        className="absolute"
+                        className="absolute max-w-full max-h-full object-contain"
                         style={{
                           left: `${imagePosition.x}px`,
                           top: `${imagePosition.y}px`,
                           transform: `scale(${imageScale})`,
                           transformOrigin: 'top left',
-                          cursor: isDraggingImage ? 'grabbing' : 'grab',
-                          maxWidth: 'none',
-                          maxHeight: 'none'
+                          cursor: isDraggingImage ? 'grabbing' : 'grab'
                         }}
                         onMouseDown={handleImageMouseDown}
                         onMouseMove={handleImageMouseMove}
