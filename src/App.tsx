@@ -303,7 +303,8 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isPanning) return;
+    // Não processar se estiver arrastando imagem
+    if (isDraggingImage || isPanning) return;
     
     const imagemAtual = activeSide === 'frente' ? template.frenteImg : template.versoImg;
     
@@ -374,6 +375,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   const handleImageMouseDown = (e: React.MouseEvent) => {
     if (e.shiftKey || e.button === 1) {
       e.preventDefault();
+      e.stopPropagation();
       setIsDraggingImage(true);
       setImageDragStart({
         x: e.clientX - imagePosition.x,
@@ -384,19 +386,24 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
 
   const handleImageMouseMove = (e: React.MouseEvent) => {
     if (isDraggingImage) {
+      e.preventDefault();
+      e.stopPropagation();
       const newX = e.clientX - imageDragStart.x;
       const newY = e.clientY - imageDragStart.y;
       setImagePosition({ x: newX, y: newY });
     }
   };
 
-  const handleImageMouseUp = () => {
+  const handleImageMouseUp = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setIsDraggingImage(false);
   };
 
   const handleImageWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
+      e.stopPropagation();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
       const newScale = Math.min(Math.max(0.1, imageScale * delta), 5);
       setImageScale(newScale);
@@ -628,7 +635,13 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                       <option value="foto">Foto</option>
                     </select>
                     <button
-                      onClick={() => setIsAddingField(!isAddingField)}
+                      onClick={() => {
+                        console.log('Botão clicado, isAddingField antes:', isAddingField);
+                        setIsAddingField(!isAddingField);
+                        setTimeout(() => {
+                          console.log('isAddingField depois:', !isAddingField);
+                        }, 100);
+                      }}
                       className={`px-3 py-1 rounded text-sm flex items-center gap-1 ${
                         isAddingField
                           ? 'bg-red-500 text-white'
