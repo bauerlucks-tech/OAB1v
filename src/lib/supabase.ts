@@ -5,8 +5,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://izbgjeptqyzohl
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6YmdqZXB0cXl6b2hscGp2a2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjEzMzMsImV4cCI6MjA4NjQ5NzMzM30.2PBHdHDtge3g5ev3PIPURjbL8kv4GUoGEezMPi6Jr0g'
 
 // Configuração para Produção (Vercel)
-const productionSupabaseUrl = 'https://seu-projeto.supabase.co'
-const productionSupabaseKey = 'sua-chave-anonima-producao'
+const productionSupabaseUrl = 'https://izbgjeptqyzohlpjvkcn.supabase.co'
+const productionSupabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml6YmdqZXB0cXl6b2hscGp2a2NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MjEzMzMsImV4cCI6MjA4NjQ5NzMzM30.2PBHdHDtge3g5ev3PIPURjbL8kv4GUoGEezMPi6Jr0g'
 
 // Usar variáveis de produção quando em ambiente de produção
 const supabaseUrlFinal = import.meta.env.MODE === 'production' ? productionSupabaseUrl : supabaseUrl
