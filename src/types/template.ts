@@ -63,7 +63,7 @@ export interface TemplateDB {
       h: number;
     }>;
   };
-  frente_img: string;
+  frente_img: string | null;
   verso_img: string | null;
   campos: Array<{
     id: string;
