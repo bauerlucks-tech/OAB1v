@@ -65,16 +65,7 @@ export interface TemplateDB {
   };
   frente_img: string;
   verso_img: string | null;
-  frente_campos: Array<{
-    id: string;
-    name: string;
-    type: 'texto' | 'foto';
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-  }>;
-  verso_campos: Array<{
+  campos: Array<{
     id: string;
     name: string;
     type: 'texto' | 'foto';
