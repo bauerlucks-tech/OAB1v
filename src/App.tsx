@@ -510,84 +510,89 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
         <div className="space-y-6">
           {/* Campos do template serão exibidos aqui */}
 
-          {/* Upload de Imagem - Apenas uma por vez */}
-          <div className="max-w-md mx-auto">
-            <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
+          {/* Upload de Imagem - Menu Separado */}
+          <div className="max-w-sm mx-auto">
+            <label className="block text-sm font-medium text-gray-700 mb-4 text-center">
               Importar Imagem do Template
             </label>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Frente</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload('frente', e)}
-                  className="text-xs w-full"
-                  disabled={!!template.versoImg}
-                />
-                {template.frenteImg && (
-                  <div className="mt-2">
-                    <img
-                      src={template.frenteImg}
-                      alt="Frente"
-                      className="w-full h-24 object-cover rounded border"
-                    />
-                    <p className="text-xs text-green-600 mt-1">✓ Frente carregada</p>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Verso</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleImageUpload('verso', e)}
-                  className="text-xs w-full"
-                  disabled={!!template.frenteImg}
-                />
-                {template.versoImg && (
-                  <div className="mt-2">
-                    <img
-                      src={template.versoImg}
-                      alt="Verso"
-                      className="w-full h-24 object-cover rounded border"
-                    />
-                    <p className="text-xs text-green-600 mt-1">✓ Verso carregado</p>
-                  </div>
-                )}
+            
+            {/* Seletor de Lado */}
+            <div className="flex justify-center mb-4">
+              <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                <button
+                  onClick={() => {
+                    setActiveSide('frente');
+                    // Limpar verso se mudar para frente
+                    if (template.versoImg) {
+                      onTemplateChange({
+                        ...template,
+                        versoImg: null,
+                        versoCampos: []
+                      });
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    activeSide === 'frente'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Frente
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveSide('verso');
+                    // Limpar frente se mudar para verso
+                    if (template.frenteImg) {
+                      onTemplateChange({
+                        ...template,
+                        frenteImg: null,
+                        frenteCampos: []
+                      });
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    activeSide === 'verso'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Verso
+                </button>
               </div>
             </div>
-            <div className="mt-3 p-2 bg-blue-50 rounded text-xs text-blue-700 text-center">
-              ℹ️ Apenas uma imagem por vez (frente ou verso)
+
+            {/* Upload do Lado Selecionado */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2 text-center">
+                {activeSide === 'frente' ? '📷 Imagem da Frente' : '📷 Imagem do Verso'}
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleImageUpload(activeSide, e)}
+                className="text-xs w-full"
+              />
+              {(activeSide === 'frente' ? template.frenteImg : template.versoImg) && (
+                <div className="mt-3">
+                  <img
+                    src={activeSide === 'frente' ? template.frenteImg || '' : template.versoImg || ''}
+                    alt={activeSide === 'frente' ? 'Frente' : 'Verso'}
+                    className="w-full h-32 object-cover rounded border"
+                  />
+                  <p className="text-xs text-green-600 mt-2 text-center">
+                    ✓ {activeSide === 'frente' ? 'Frente' : 'Verso'} carregada
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 p-2 bg-amber-50 rounded text-xs text-amber-700 text-center">
+              ℹ️ Selecione o lado e importe uma imagem por vez
             </div>
           </div>
 
-          {/* Seletor de Lado */}
-          <div className="flex justify-center">
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-              <button
-                onClick={() => setActiveSide('frente')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  activeSide === 'frente'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Frente
-              </button>
-              <button
-                onClick={() => setActiveSide('verso')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                  activeSide === 'verso'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Verso
-              </button>
-            </div>
-          </div>
-
+          
           {/* Editor Visual */}
           {((activeSide === 'frente' && template.frenteImg) || (activeSide === 'verso' && template.versoImg)) && (
             <div className="flex gap-6">
