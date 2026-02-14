@@ -165,10 +165,9 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [activeSide, setActiveSide] = useState<'frente' | 'verso'>('frente');
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
   const [imageScale, setImageScale] = useState(1);
   const [isDraggingImage, setIsDraggingImage] = useState(false);
@@ -327,9 +326,9 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
     const rect = canvasRef.current?.getBoundingClientRect();
     console.log('Canvas rect:', rect);
     if (rect) {
-      // Ajustar coordenadas considerando zoom e pan
-      const x = (e.clientX - rect.left - pan.x) / zoom;
-      const y = (e.clientY - rect.top - pan.y) / zoom;
+      // Ajustar coordenadas considerando posição e escala da imagem
+      const x = (e.clientX - rect.left - imagePosition.x) / imageScale;
+      const y = (e.clientY - rect.top - imagePosition.y) / imageScale;
       console.log('Adicionando campo em:', { x, y });
       addField(x, y);
     } else {
@@ -337,13 +336,7 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
     }
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.min(Math.max(0.5, zoom * delta), 3);
-    setZoom(newZoom);
-  };
-
+  
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
       // Botão direito ou Shift+esquerdo para pan
@@ -366,7 +359,6 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
   };
 
   const resetView = () => {
-    setZoom(1);
     setPan({ x: 0, y: 0 });
     setImagePosition({ x: 0, y: 0 });
     setImageScale(1);
@@ -659,7 +651,6 @@ function TemplateEditor({ template, onTemplateChange, onSave }: {
                     isAddingField ? 'cursor-crosshair' : isPanning ? 'cursor-move' : 'cursor-default'
                   }`}
                   onClick={handleCanvasClick}
-                  onWheel={handleWheel}
                   onMouseDown={handleCanvasMouseDown}
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={handleCanvasMouseUp}
