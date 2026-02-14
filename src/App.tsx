@@ -4,6 +4,54 @@ import CardGenerator from './components/CardGenerator';
 import { getAllTemplates, saveCard } from './services/templateService';
 import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('ErrorBoundary capturou erro:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-red-50 flex items-center justify-center">
+          <div className="text-center p-8">
+            <h2 className="text-2xl font-bold text-red-800 mb-4">Ocorreu um Erro</h2>
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+              <p className="font-medium">O sistema encontrou um erro inesperado.</p>
+              <details className="mt-2">
+                <summary className="cursor-pointer font-medium">Ver detalhes do erro</summary>
+                <pre className="mt-2 text-sm text-left whitespace-pre-wrap">
+                  {this.state.error?.toString()}
+                </pre>
+              </details>
+            </div>
+            <button
+              onClick={() => this.setState({ hasError: false, error: null })}
+              className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // Importar tipos
 interface Template {
   id: string;
@@ -41,6 +89,7 @@ const App: React.FC = () => {
       setTemplates(data);
     } catch (error: any) {
       console.error('Erro ao carregar templates:', error);
+      console.error('Detalhes do erro:', error.message, error.stack);
       alert('Erro ao carregar templates: ' + error.message);
     } finally {
       setLoading(false);
@@ -312,4 +361,11 @@ const App: React.FC = () => {
   }
 };
 
-export default App;
+// Componente wrapper com Error Boundary
+const AppWithErrorBoundary: React.FC = () => (
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
+
+export default AppWithErrorBoundary;
