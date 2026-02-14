@@ -33,6 +33,26 @@ const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
   updatedAt: new Date(dbTemplate.updated_at)
 });
 
+// Buscar todos os templates
+export const getAllTemplates = async (): Promise<Template[]> => {
+  if (!supabase) {
+    throw new Error('supabase - Supabase client is not configured');
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data.map(fromDBFormat);
+  } catch (error) {
+    console.error('Erro ao buscar templates:', error);
+    throw error;
+  }
+};
+
 // Salvar template
 export const saveTemplate = async (template: Template): Promise<Template> => {
   if (!supabase) {
@@ -54,62 +74,58 @@ export const saveTemplate = async (template: Template): Promise<Template> => {
   }
 };
 
-// Buscar todos os templates
-export const getAllTemplates = async (): Promise<Template[]> => {
+// Salvar carteirinha gerada
+export const saveCard = async (
+  templateId: string,
+  templateName: string,
+  frenteUrl: string,
+  versoUrl: string | null,
+  dados: any,
+  fotos: any
+): Promise<string> => {
   if (!supabase) {
     throw new Error('supabase - Supabase client is not configured');
   }
-  
+
   try {
     const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data.map(fromDBFormat);
-  } catch (error) {
-    console.error('Erro ao buscar templates:', error);
-    throw error;
-  }
-};
-
-// Buscar template por ID
-export const getTemplateById = async (id: string): Promise<Template> => {
-  if (!supabase) {
-    throw new Error('supabase - Supabase client is not configured');
-  }
-  
-  try {
-    const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('id', id)
+      .from('carteirinhas')
+      .insert({
+        template_id: templateId,
+        template_name: templateName,
+        dados: dados,
+        fotos: fotos,
+        frente_url: frenteUrl,
+        verso_url: versoUrl
+      })
+      .select()
       .single();
 
     if (error) throw error;
-    return fromDBFormat(data);
+    return data.id;
   } catch (error) {
-    console.error('Erro ao buscar template:', error);
+    console.error('Erro ao salvar carteirinha:', error);
     throw error;
   }
 };
 
-// Deletar template
-export const deleteTemplate = async (id: string): Promise<void> => {
+// Buscar carteirinhas por template
+export const getCardsByTemplate = async (templateId: string): Promise<any[]> => {
   if (!supabase) {
     throw new Error('supabase - Supabase client is not configured');
   }
-  
+
   try {
-    const { error } = await supabase
-      .from('templates')
-      .delete()
-      .eq('id', id);
+    const { data, error } = await supabase
+      .from('carteirinhas')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
+    return data;
   } catch (error) {
-    console.error('Erro ao deletar template:', error);
+    console.error('Erro ao buscar carteirinhas:', error);
     throw error;
   }
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TemplateEditor from './components/TemplateEditor';
 import CardGenerator from './components/CardGenerator';
-import { getAllTemplates } from './services/templateService';
+import { getAllTemplates, saveCard } from './services/templateService';
 import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 
 // Importar tipos
@@ -279,7 +279,25 @@ const AppSimple: React.FC = () => {
               <CardGenerator
                 template={selectedTemplate}
                 data={cardData}
-                onGenerate={(url) => console.log('Carteirinha gerada:', url)}
+                onGenerate={async (url) => {
+                  console.log('Carteirinha gerada:', url);
+                  
+                  // Salvar carteirinha no Supabase
+                  try {
+                    await saveCard(
+                      selectedTemplate.id,
+                      selectedTemplate.name,
+                      selectedTemplate.frontImage || '',
+                      selectedTemplate.backImage,
+                      cardData,
+                      url
+                    );
+                    alert('Carteirinha salva com sucesso!');
+                  } catch (error: any) {
+                    console.error('Erro ao salvar carteirinha:', error);
+                    alert('Erro ao salvar carteirinha: ' + error.message);
+                  }
+                }}
               />
             )}
           </div>
