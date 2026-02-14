@@ -4,54 +4,6 @@ import CardGenerator from './components/CardGenerator';
 import { getAllTemplates, saveCard } from './services/templateService';
 import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 
-// Error Boundary Component
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null as Error | null, errorInfo: null as React.ErrorInfo | null };
-  }
-
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error, errorInfo: error.stack };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({ hasError: true, error, errorInfo });
-    console.error('ErrorBoundary capturou erro:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="min-h-screen bg-red-50 flex items-center justify-center">
-          <div className="text-center p-8">
-            <h2 className="text-2xl font-bold text-red-800 mb-4">Ocorreu um Erro</h2>
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-              <p className="font-medium">O sistema encontrou um erro inesperado.</p>
-              <details className="mt-2">
-                <summary className="cursor-pointer font-medium">Ver detalhes do erro</summary>
-                <pre className="mt-2 text-sm text-left whitespace-pre-wrap">
-                  {this.state.error?.toString()}
-                </pre>
-              </details>
-            </div>
-            <button
-              onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
-              className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
-            >
-              Tentar Novamente
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-
 // Importar tipos
 interface Template {
   id: string;
@@ -64,7 +16,7 @@ interface Template {
 
 type View = 'list' | 'editor' | 'generator';
 
-const AppWithErrorBoundary: React.FC = () => {
+const App: React.FC = () => {
   const [view, setView] = useState<View>('list');
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -211,7 +163,7 @@ const AppWithErrorBoundary: React.FC = () => {
                     <button
                       onClick={() => {
                         if (confirm('Tem certeza que deseja deletar este template?')) {
-                          alert('Funcionalidade de deletar sera implementada no TemplateEditor');
+                          alert('Funcionalidade de deletar será implementada no TemplateEditor');
                         }
                       }}
                       className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
@@ -305,6 +257,19 @@ const AppWithErrorBoundary: React.FC = () => {
                               }
                             }))}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder={`Digite ${field.label.toLowerCase()}`}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div>
+              <h2 className="text-2xl font-bold mb-6">Preview</h2>
+              {selectedTemplate && (
                 <CardGenerator
                   template={selectedTemplate}
                   data={cardData}
@@ -333,8 +298,8 @@ const AppWithErrorBoundary: React.FC = () => {
           </div>
         </main>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Renderizar view principal
   switch (view) {
@@ -347,4 +312,4 @@ const AppWithErrorBoundary: React.FC = () => {
   }
 };
 
-export default AppWithErrorBoundary;
+export default App;
