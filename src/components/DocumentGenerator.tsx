@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Upload, Download, FileText } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, Download, FileText, Camera, Type } from 'lucide-react';
 import { Template, GeneratedFieldValue } from '../types/template';
 
 interface Props {
@@ -9,11 +9,14 @@ interface Props {
 
 export default function DocumentGenerator({ template, onSave }: Props) {
   const [formData, setFormData] = useState<GeneratedFieldValue[]>([]);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [currentSide, setCurrentSide] = useState<'front' | 'back'>('front');
+  const [imageScale, setImageScale] = useState({ x: 1, y: 1 });
+  
+  const frontCanvasRef = useRef<HTMLCanvasElement>(null);
+  const backCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Inicializar formData com campos do template
-  React.useEffect(() => {
+  useEffect(() => {
     const initialData: GeneratedFieldValue[] = template.fields.map(field => ({
       fieldId: field.id,
       value: ''
@@ -21,10 +24,29 @@ export default function DocumentGenerator({ template, onSave }: Props) {
     setFormData(initialData);
   }, [template.fields]);
 
+  // Calcular escala da imagem quando carregada
+  useEffect(() => {
+    const canvas = currentSide === 'front' ? frontCanvasRef.current : backCanvasRef.current;
+    if (!canvas) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const naturalWidth = img.naturalWidth;
+      const naturalHeight = img.naturalHeight;
+      
+      if (naturalWidth && naturalHeight) {
+        const scaleX = template.width / naturalWidth;
+        const scaleY = template.height / naturalHeight;
+        setImageScale({ x: scaleX, y: scaleY });
+      }
+    };
+    img.src = currentSide === 'front' ? template.frontImageUrl : template.backImageUrl || '';
+  }, [template, currentSide]);
+
   // Gerar preview em tempo real
-  React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !template.frontImageUrl) return;
+  useEffect(() => {
+    const canvas = currentSide === 'front' ? frontCanvasRef.current : backCanvasRef.current;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -42,15 +64,17 @@ export default function DocumentGenerator({ template, onSave }: Props) {
       // Desenhar imagem
       ctx.drawImage(img, 0, 0, template.width, template.height);
 
-      // Desenhar campos
-      template.fields.forEach(field => {
+      // Desenhar campos do lado atual
+      const sideFields = template.fields.filter(field => field.side === currentSide);
+      
+      sideFields.forEach(field => {
         const fieldValue = formData.find(f => f.fieldId === field.id)?.value;
 
         if (field.type === 'text' && typeof fieldValue === 'string') {
           // Desenhar texto
           ctx.font = '16px Arial';
           ctx.fillStyle = '#000000';
-          ctx.fillText(fieldValue || field.name, field.x, field.y + 20);
+          ctx.fillText(fieldValue || field.name, field.x * imageScale.x, field.y * imageScale.y + 20);
         } else if (field.type === 'photo') {
           // Desenhar placeholder ou imagem
           if (fieldValue instanceof File) {
@@ -59,8 +83,13 @@ export default function DocumentGenerator({ template, onSave }: Props) {
             reader.onload = (e) => {
               const photoImg = new Image();
               photoImg.onload = () => {
-                ctx.drawImage(photoImg, field.x, field.y, field.width, field.height);
-                setPreviewImage(canvas.toDataURL('image/png'));
+                ctx.drawImage(
+                  photoImg, 
+                  field.x * imageScale.x, 
+                  field.y * imageScale.y, 
+                  field.width * imageScale.x, 
+                  field.height * imageScale.y
+                );
               };
               photoImg.src = e.target?.result as string;
             };
@@ -69,18 +98,26 @@ export default function DocumentGenerator({ template, onSave }: Props) {
             // Placeholder para campo de foto vazio
             ctx.strokeStyle = '#666666';
             ctx.setLineDash([5, 5]);
-            ctx.strokeRect(field.x, field.y, field.width, field.height);
+            ctx.strokeRect(
+              field.x * imageScale.x, 
+              field.y * imageScale.y, 
+              field.width * imageScale.x, 
+              field.height * imageScale.y
+            );
             ctx.fillStyle = '#999999';
             ctx.font = '14px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('Foto', field.x + field.width / 2, field.y + field.height / 2);
-            setPreviewImage(canvas.toDataURL('image/png'));
+            ctx.fillText(
+              'Foto', 
+              field.x * imageScale.x + (field.width * imageScale.x) / 2, 
+              field.y * imageScale.y + (field.height * imageScale.y) / 2
+            );
           }
         }
       });
     };
-    img.src = template.frontImageUrl;
-  }, [template, formData]);
+    img.src = currentSide === 'front' ? template.frontImageUrl : template.backImageUrl || '';
+  }, [template, formData, currentSide, imageScale]);
 
   const handleFieldChange = (fieldId: string, value: string | File) => {
     setFormData(prev => {
@@ -115,12 +152,13 @@ export default function DocumentGenerator({ template, onSave }: Props) {
     }
   };
 
-  const handleDownload = () => {
-    if (!previewImage) return;
+  const handleDownload = (side: 'front' | 'back') => {
+    const canvas = side === 'front' ? frontCanvasRef.current : backCanvasRef.current;
+    if (!canvas) return;
 
     const link = document.createElement('a');
-    link.download = `documento-${template.name}-${Date.now()}.png`;
-    link.href = previewImage;
+    link.download = `documento-${template.name}-${side}-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
     link.click();
   };
 
@@ -129,9 +167,11 @@ export default function DocumentGenerator({ template, onSave }: Props) {
     return field?.value || '';
   };
 
+  const currentFields = template.fields.filter(field => field.side === currentSide);
+
   return (
     <div className="w-full h-full bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between">
@@ -149,14 +189,6 @@ export default function DocumentGenerator({ template, onSave }: Props) {
                 <Upload size={16} />
                 Salvar Dados
               </button>
-              <button
-                onClick={handleDownload}
-                disabled={!previewImage}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg flex items-center gap-2 disabled:cursor-not-allowed"
-              >
-                <Download size={16} />
-                Baixar Imagem
-              </button>
             </div>
           </div>
         </div>
@@ -164,10 +196,40 @@ export default function DocumentGenerator({ template, onSave }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Formulário */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">Preencher Campos</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Preencher Campos</h2>
+              
+              {/* Alternador Frente/Verso */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentSide('front')}
+                  className={`px-3 py-1 text-sm rounded flex items-center gap-1 ${
+                    currentSide === 'front' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <Type size={14} />
+                  Frente
+                </button>
+                {template.backImageUrl && (
+                  <button
+                    onClick={() => setCurrentSide('back')}
+                    className={`px-3 py-1 text-sm rounded flex items-center gap-1 ${
+                      currentSide === 'back' 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    <Camera size={14} />
+                    Verso
+                  </button>
+                )}
+              </div>
+            </div>
             
             <div className="space-y-4">
-              {template.fields.map(field => {
+              {currentFields.map(field => {
                 const value = getFieldValue(field.id);
                 const isPhoto = field.type === 'photo';
                 
@@ -231,25 +293,33 @@ export default function DocumentGenerator({ template, onSave }: Props) {
 
           {/* Preview */}
           <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900">Preview</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Preview - {currentSide === 'front' ? 'Frente' : 'Verso'}
+              </h2>
+              
+              <button
+                onClick={() => handleDownload(currentSide)}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded flex items-center gap-1 text-sm"
+              >
+                <Download size={14} />
+                Baixar
+              </button>
+            </div>
             
             <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
               <canvas
-                ref={canvasRef}
+                ref={currentSide === 'front' ? frontCanvasRef : backCanvasRef}
                 className="w-full h-auto"
                 style={{ maxWidth: '100%', height: 'auto' }}
               />
             </div>
             
-            {previewImage && (
-              <div className="mt-4 text-center">
-                <img
-                  src={previewImage}
-                  alt="Preview do documento"
-                  className="max-w-full h-auto border border-gray-200 rounded-lg"
-                />
-              </div>
-            )}
+            {/* Indicador de escala */}
+            <div className="mt-2 text-xs text-gray-500 text-center">
+              Escala: {imageScale.x.toFixed(2)}x, {imageScale.y.toFixed(2)}y | 
+              Dimensões: {template.width}x{template.height}px
+            </div>
           </div>
         </div>
       </div>

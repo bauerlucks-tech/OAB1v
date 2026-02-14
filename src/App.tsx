@@ -249,10 +249,6 @@ function App() {
               // Erro já tratado em handleSaveTemplate
             }
           }}
-          onSave={() => {
-            setSelectedTemplate(null);
-            setView('list');
-          }} 
         />
       </main>
     </div>

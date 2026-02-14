@@ -1,19 +1,19 @@
-import React, { useRef, useState, useCallback } from "react";
-import { ZoomIn, ZoomOut, Move, Pencil, Maximize, Type, Image as ImageIcon, Trash2 } from "lucide-react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
+import { ZoomIn, ZoomOut, Move, Pencil, Type, Image as ImageIcon, Trash2 } from "lucide-react";
 import { Template, TemplateField, TemplateFieldType, TemplateSide } from "../types/template";
 
 interface Props {
   template?: Template | null;
   onChange: (template: Template) => void;
-  onSave?: () => void;
 }
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 
-export default function TemplateEditorAdvanced({ template, onChange, onSave }: Props) {
-  const canvasRef = useRef<HTMLDivElement>(null);
-
+export default function TemplateEditorAdvanced({ template, onChange }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  
   const [zoom, setZoom] = useState(1);
   const [mode, setMode] = useState<"move" | "draw">("draw");
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -22,8 +22,13 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
   const [currentSide, setCurrentSide] = useState<TemplateSide>('front');
   const [fieldType, setFieldType] = useState<TemplateFieldType>('text');
   const [selectedField, setSelectedField] = useState<string | null>(null);
+  type ResizeHandle = 'left' | 'right' | 'top' | 'bottom';
 
+const [isResizing, setIsResizing] = useState(false);
+  const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
+  const [resizeStart, setResizeStart] = useState<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
   const [drawing, setDrawing] = useState<TemplateField | null>(null);
+  const [imageScale, setImageScale] = useState({ x: 1, y: 1 });
 
   // Template inicial se não for fornecido
   const currentTemplate = template || {
@@ -39,6 +44,21 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
   const currentFields = currentTemplate.fields.filter(field => field.side === currentSide);
   const currentImage = currentSide === 'front' ? currentTemplate.frontImageUrl : currentTemplate.backImageUrl;
 
+  // Calcular escala da imagem quando carregada
+  useEffect(() => {
+    if (imageRef.current && currentImage) {
+      const naturalWidth = imageRef.current.naturalWidth;
+      const naturalHeight = imageRef.current.naturalHeight;
+      
+      if (naturalWidth && naturalHeight) {
+        const scaleX = currentTemplate.width / naturalWidth;
+        const scaleY = currentTemplate.height / naturalHeight;
+        
+        setImageScale({ x: scaleX, y: scaleY });
+      }
+    }
+  }, [currentImage, currentTemplate.width, currentTemplate.height]);
+
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
@@ -52,10 +72,53 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
       return;
     }
 
-    if (mode === "draw" && currentImage) {
-      const rect = canvasRef.current!.getBoundingClientRect();
-      const x = (e.clientX - rect.left - pan.x) / zoom;
-      const y = (e.clientY - rect.top - pan.y) / zoom;
+    if (mode === "move" && currentImage) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      // Verificar se clicou em algum campo
+      const mouseX = (e.clientX - rect.left - pan.x) / zoom / imageScale.x;
+      const mouseY = (e.clientY - rect.top - pan.y) / zoom / imageScale.y;
+
+      const clickedField = currentFields.find(currentField => 
+        mouseX >= currentField.x * imageScale.x &&
+        mouseX <= (currentField.x + currentField.width) * imageScale.x &&
+        mouseY >= currentField.y * imageScale.y &&
+        mouseY <= (currentField.y + currentField.height) * imageScale.y &&
+        !currentField.locked
+      );
+
+      if (clickedField) {
+        setSelectedField(clickedField.id);
+        
+        // Verificar se está na borda para redimensionar
+        const edge = 10; // Tolerância de 10px para detectar borda
+        const isLeftEdge = Math.abs(mouseX - clickedField.x * imageScale.x) < edge;
+        const isRightEdge = Math.abs(mouseX - (clickedField.x + clickedField.width) * imageScale.x) < edge;
+        const isTopEdge = Math.abs(mouseY - clickedField.y * imageScale.y) < edge;
+        const isBottomEdge = Math.abs(mouseY - (clickedField.y + clickedField.height) * imageScale.y) < edge;
+
+        let handle = '';
+        if (isLeftEdge) handle = 'left';
+        else if (isRightEdge) handle = 'right';
+        else if (isTopEdge) handle = 'top';
+        else if (isBottomEdge) handle = 'bottom';
+
+        if (handle) {
+          setIsResizing(true);
+          setResizeHandle(handle as ResizeHandle);
+          setResizeStart({ x: mouseX, y: mouseY, width: clickedField.width, height: clickedField.height });
+        }
+      } else {
+        setSelectedField(null);
+      }
+    } else if (mode === "draw" && currentImage) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      // Converter coordenadas do mouse para coordenadas da imagem original
+      const mouseX = (e.clientX - rect.left - pan.x) / zoom / imageScale.x;
+      const mouseY = (e.clientY - rect.top - pan.y) / zoom / imageScale.y;
 
       // Verificar regra: só pode existir 1 campo photo no back
       if (fieldType === 'photo' && currentSide === 'back') {
@@ -68,20 +131,33 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
         }
       }
 
+      const fieldName = prompt(`Nome do campo ${fieldType === 'text' ? 'de texto' : 'de foto'}:`);
+      if (!fieldName) return;
+
       setDrawing({
         id: crypto.randomUUID(),
-        name: fieldType === 'text' ? 'Texto' : 'Foto',
+        name: fieldName,
         type: fieldType,
         side: currentSide,
-        x,
-        y,
+        x: mouseX,
+        y: mouseY,
         width: 0,
         height: 0,
         required: false,
         locked: fieldType === 'photo' // Campo photo sempre locked
       });
     }
-  }, [mode, currentImage, pan, zoom, fieldType, currentSide, currentTemplate.fields]);
+  }, [mode, currentImage, pan, zoom, imageScale, fieldType, currentSide, currentTemplate.fields]);
+
+  const updateField = useCallback((fieldId: string, updates: Partial<TemplateField>) => {
+    const updatedTemplate = {
+      ...currentTemplate,
+      fields: currentTemplate.fields.map(field => 
+        field.id === fieldId ? { ...field, ...updates } : field
+      )
+    };
+    onChange(updatedTemplate);
+  }, [currentTemplate, onChange]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
@@ -91,13 +167,54 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
       });
     }
 
-    if (drawing) {
-      const rect = canvasRef.current!.getBoundingClientRect();
-      const width = (e.clientX - rect.left - pan.x) / zoom - drawing.x;
-      const height = (e.clientY - rect.top - pan.y) / zoom - drawing.y;
+    if (isResizing && resizeHandle && selectedField) {
+      const field = currentTemplate.fields.find(f => f.id === selectedField);
+      if (!field || field.locked) return;
+
+      const deltaX = e.clientX - resizeStart.x;
+      const deltaY = e.clientY - resizeStart.y;
+
+      let newWidth = field.width;
+      let newHeight = field.height;
+      let newX = field.x;
+      let newY = field.y;
+
+      // Calcular novo tamanho e posição baseado no handle
+      if (resizeHandle.includes('right')) {
+        newWidth = Math.max(50, field.width + deltaX);
+      }
+      if (resizeHandle.includes('left')) {
+        newWidth = Math.max(50, field.width - deltaX);
+        newX = field.x + (field.width - newWidth);
+      }
+      if (resizeHandle.includes('bottom')) {
+        newHeight = Math.max(30, field.height + deltaY);
+      }
+      if (resizeHandle.includes('top')) {
+        newHeight = Math.max(30, field.height - deltaY);
+        newY = field.y + (field.height - newHeight);
+      }
+
+      updateField(selectedField, {
+        width: newWidth,
+        height: newHeight,
+        x: newX,
+        y: newY
+      });
+    } else if (drawing) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      // Converter coordenadas do mouse para coordenadas da imagem original
+      const currentMouseX = (e.clientX - rect.left - pan.x) / zoom / imageScale.x;
+      const currentMouseY = (e.clientY - rect.top - pan.y) / zoom / imageScale.y;
+
+      const width = currentMouseX - drawing.x;
+      const height = currentMouseY - drawing.y;
+
       setDrawing({ ...drawing, width, height });
     }
-  }, [isPanning, startPan, drawing, pan, zoom]);
+  }, [isPanning, startPan, isResizing, resizeStart, resizeHandle, selectedField, currentTemplate, updateField, drawing, pan, zoom, imageScale]);
 
   const handleMouseUp = useCallback(() => {
     if (drawing && Math.abs(drawing.width) > 20 && Math.abs(drawing.height) > 20) {
@@ -139,14 +256,6 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
   const resetView = useCallback(() => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
-  }, []);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
   }, []);
 
   return (
@@ -234,25 +343,11 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
             <Trash2 size={18} />
           </button>
         )}
-
-        <div className="ml-auto flex items-center gap-2">
-          {onSave && (
-            <button 
-              onClick={onSave} 
-              className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
-            >
-              Salvar
-            </button>
-          )}
-          <button onClick={toggleFullscreen} className="p-1 hover:bg-gray-700" title="Fullscreen">
-            <Maximize size={18} />
-          </button>
-        </div>
       </div>
 
       {/* Canvas */}
       <div
-        ref={canvasRef}
+        ref={containerRef}
         className="flex-1 overflow-hidden relative"
         style={{ cursor: isPanning ? 'grabbing' : mode === 'move' ? 'grab' : 'crosshair' }}
         onWheel={handleWheel}
@@ -273,12 +368,24 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
           {/* Imagem de Fundo */}
           {currentImage && (
             <img
+              ref={imageRef}
               src={currentImage}
               alt="Template"
-              className="absolute top-0 left-0 w-full h-full object-contain"
+              className="absolute top-0 left-0"
               style={{
                 width: `${currentTemplate.width}px`,
                 height: `${currentTemplate.height}px`,
+              }}
+              onLoad={() => {
+                // Recalcular escala quando a imagem carregar
+                const naturalWidth = imageRef.current?.naturalWidth;
+                const naturalHeight = imageRef.current?.naturalHeight;
+                
+                if (naturalWidth && naturalHeight) {
+                  const scaleX = currentTemplate.width / naturalWidth;
+                  const scaleY = currentTemplate.height / naturalHeight;
+                  setImageScale({ x: scaleX, y: scaleY });
+                }
               }}
             />
           )}
@@ -289,10 +396,10 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
               key={field.id}
               onClick={() => setSelectedField(field.id)}
               style={{
-                left: field.x,
-                top: field.y,
-                width: field.width,
-                height: field.height,
+                left: field.x * imageScale.x,
+                top: field.y * imageScale.y,
+                width: field.width * imageScale.x,
+                height: field.height * imageScale.y,
               }}
               className={`absolute border-2 cursor-pointer transition-colors ${
                 selectedField === field.id
@@ -305,6 +412,17 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
               <div className="absolute top-0 left-0 text-xs bg-black/50 text-white px-1 rounded-br">
                 {field.name}
               </div>
+              
+              {/* Handles de redimensionamento */}
+              {!field.locked && selectedField === field.id && (
+                <>
+                  <div className="absolute -top-1 -left-1 w-2 h-2 bg-blue-500 rounded-full cursor-nw-resize" />
+                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full cursor-ne-resize" />
+                  <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-blue-500 rounded-full cursor-sw-resize" />
+                  <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 rounded-full cursor-se-resize" />
+                </>
+              )}
+
               {field.locked && (
                 <div className="absolute top-0 right-0 text-xs bg-red-500 text-white px-1 rounded-bl">
                   🔒
@@ -317,10 +435,10 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
           {drawing && (
             <div
               style={{
-                left: drawing.x,
-                top: drawing.y,
-                width: drawing.width,
-                height: drawing.height,
+                left: drawing.x * imageScale.x,
+                top: drawing.y * imageScale.y,
+                width: drawing.width * imageScale.x,
+                height: drawing.height * imageScale.y,
               }}
               className={`absolute border-2 border-blue-400 bg-blue-400/20 pointer-events-none ${
                 drawing.type === 'photo' ? 'border-purple-400 bg-purple-400/20' : ''
@@ -336,6 +454,7 @@ export default function TemplateEditorAdvanced({ template, onChange, onSave }: P
           <span>Lado: {currentSide === 'front' ? 'Frente' : 'Verso'}</span>
           <span>Campos: {currentFields.length}</span>
           <span>Modo: {mode === 'draw' ? 'Desenhar' : 'Mover'}</span>
+          <span>Escala: {imageScale.x.toFixed(2)}x, {imageScale.y.toFixed(2)}y</span>
         </div>
         <div className="flex items-center gap-4">
           <span>Zoom: {Math.round(zoom * 100)}%</span>
