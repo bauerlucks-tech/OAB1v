@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { Template, TemplateCardData } from '../types/template';
 import { Download, Eye } from 'lucide-react';
 
@@ -14,7 +14,7 @@ const CardGenerator: React.FC<CardGeneratorProps> = ({ template, data, onGenerat
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Gerar carteirinha
-  const generateCard = async (side: 'front' | 'back') => {
+  const generateCard = useCallback(async (side: 'front' | 'back') => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
@@ -84,7 +84,7 @@ const CardGenerator: React.FC<CardGeneratorProps> = ({ template, data, onGenerat
     } finally {
       setLoading(false);
     }
-  };
+  }, [template, data, onGenerate]);
 
   // Carregar imagem como Promise
   const loadImage = (url: string): Promise<HTMLImageElement> => {
@@ -109,7 +109,7 @@ const CardGenerator: React.FC<CardGeneratorProps> = ({ template, data, onGenerat
 
   useEffect(() => {
     generateCard('front').catch(console.error);
-  }, [template, data]);
+  }, [generateCard]);
 
   return (
     <div className="bg-gray-800 rounded-lg p-6">
