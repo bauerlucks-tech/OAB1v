@@ -144,8 +144,8 @@ const AppSimple: React.FC = () => {
                     <h3 className="font-semibold text-lg text-gray-900 mb-2">{template.name}</h3>
                     
                     <div className="text-sm text-gray-600 mb-4">
-                      <p>Campos frente: {template.frontFields.length}</p>
-                      <p>Campos verso: {template.backFields.length}</p>
+                      <p>Campos frente: {template.frontFields?.length || 0}</p>
+                      <p>Campos verso: {template.backFields?.length || 0}</p>
                     </div>
 
                     <div className="flex gap-2">
