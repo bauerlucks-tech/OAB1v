@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, FileText, Printer } from 'lucide-react';
 import { Template } from './types/template';
-import TemplateEditor from './components/TemplateEditor';
+import TemplateEditorAdvanced from './components/TemplateEditorAdvanced';
 import CardGenerator from './components/CardGenerator';
-import { getAllTemplates, saveCard, getTemplateById } from './services/templateService';
+import { getAllTemplates, saveCard, getTemplateById, saveTemplate } from './services/templateService';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
@@ -110,6 +110,20 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('Erro ao carregar template para edição:', error);
       alert('Erro ao carregar template para edição');
+    }
+  };
+
+  // Salvar template
+  const handleSaveTemplate = async (template: Template) => {
+    try {
+      const savedTemplate = await saveTemplate(template);
+      setSelectedTemplate(savedTemplate);
+      await loadTemplates(); // Recarregar lista
+      return savedTemplate;
+    } catch (error) {
+      console.error('Erro ao salvar template:', error);
+      alert('Erro ao salvar template');
+      throw error;
     }
   };
 
@@ -268,8 +282,15 @@ const App: React.FC = () => {
         </div>
       </header>
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <TemplateEditor 
+        <TemplateEditorAdvanced 
           template={selectedTemplate}
+          onChange={async (updatedTemplate) => {
+            try {
+              await handleSaveTemplate(updatedTemplate);
+            } catch (error) {
+              // Erro já tratado em handleSaveTemplate
+            }
+          }}
           onSave={() => {
             setSelectedTemplate(null); // Resetar
             setView('list');
