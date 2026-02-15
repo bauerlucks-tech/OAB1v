@@ -1,15 +1,15 @@
-import { Template, TemplateDB, DBField } from '../types/template';
+import { Template, TemplateField, DBField } from '../types/template';
 import { supabase } from '../lib/supabase';
 
 // Converter do app para o DB
-const toDBFormat = (template: Template): TemplateDB => ({
+export const toDBFormat = (template: Template) => ({
   id: template.id,
   name: template.name,
   frontImageUrl: template.frontImageUrl,
   backImageUrl: template.backImageUrl,
   width: template.width,
   height: template.height,
-  fields: template.fields.map(field => ({
+  fields: template.fields.map((field: TemplateField): DBField => ({
     id: field.id,
     name: field.name,
     type: field.type,
@@ -26,33 +26,38 @@ const toDBFormat = (template: Template): TemplateDB => ({
 });
 
 // Converter do DB para o app
-const fromDBFormat = (dbTemplate: TemplateDB): Template => ({
-  id: dbTemplate.id,
-  name: dbTemplate.name,
-  frontImageUrl: dbTemplate.frontImageUrl,
-  backImageUrl: dbTemplate.backImageUrl,
-  width: dbTemplate.width,
-  height: dbTemplate.height,
-    fields: dbTemplate.fields.map((field: DBField) => ({
-    id: field.id,
-    name: field.name,
-    type: field.type,
-    side: field.side,
-    x: field.x,
-    y: field.y,
-    width: field.width,
-    height: field.height,
-    required: field.required,
-    locked: field.locked
-  })),
-  createdAt: dbTemplate.created_at,
-  updatedAt: dbTemplate.updated_at
-});
+const fromDBFormat = (dbTemplate: any): Template => {
+  // Mapear campos reais do Supabase para a interface Template
+  const fields = dbTemplate.fields || dbTemplate.campos || [];
+  
+  return {
+    id: dbTemplate.id,
+    name: dbTemplate.name,
+    frontImageUrl: dbTemplate.frontImageUrl || dbTemplate.frente_img,
+    backImageUrl: dbTemplate.backImageUrl || dbTemplate.verso_img,
+    width: dbTemplate.width,
+    height: dbTemplate.height,
+    fields: Array.isArray(fields) ? fields.map((field: any): TemplateField => ({
+      id: field.id,
+      name: field.name,
+      type: field.type,
+      side: field.side,
+      x: field.x,
+      y: field.y,
+      width: field.width,
+      height: field.height,
+      required: field.required,
+      locked: field.locked
+    })) : [],
+    createdAt: dbTemplate.created_at,
+    updatedAt: dbTemplate.updated_at
+  };
+};
 
 // Buscar todos os templates
 export const getAllTemplates = async (): Promise<Template[]> => {
   if (!supabase) {
-    throw new Error('supabase - Supabase client is not configured');
+    throw new Error('Supabase client is not configured');
   }
   
   try {
@@ -80,7 +85,7 @@ export const getAllTemplates = async (): Promise<Template[]> => {
 // Buscar template por ID
 export const getTemplateById = async (id: string): Promise<Template> => {
   if (!supabase) {
-    throw new Error('supabase - Supabase client is not configured');
+    throw new Error('Supabase client is not configured');
   }
   
   try {
@@ -109,17 +114,22 @@ export const getTemplateById = async (id: string): Promise<Template> => {
 // Salvar template
 export const saveTemplate = async (template: Template): Promise<Template> => {
   if (!supabase) {
-    throw new Error('supabase - Supabase client is not configured');
+    throw new Error('Supabase client is not configured');
   }
   
   try {
+    const dbTemplate = toDBFormat(template);
     const { data, error } = await supabase
       .from('templates')
-      .upsert(toDBFormat(template))
+      .insert(dbTemplate)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao salvar template:', error);
+      throw error;
+    }
+    
     return fromDBFormat(data);
   } catch (error) {
     console.error('Erro ao salvar template:', error);
@@ -127,10 +137,39 @@ export const saveTemplate = async (template: Template): Promise<Template> => {
   }
 };
 
-// Excluir template
+// Atualizar template
+export const updateTemplate = async (id: string, template: Partial<Template>): Promise<Template> => {
+  if (!supabase) {
+    throw new Error('Supabase client is not configured');
+  }
+  
+  try {
+    const { data, error } = await supabase
+      .from('templates')
+      .update({
+        ...toDBFormat(template as Template),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erro ao atualizar template:', error);
+      throw error;
+    }
+    
+    return fromDBFormat(data);
+  } catch (error) {
+    console.error('Erro ao atualizar template:', error);
+    throw error;
+  }
+};
+
+// Deletar template
 export const deleteTemplate = async (id: string): Promise<void> => {
   if (!supabase) {
-    throw new Error('supabase - Supabase client is not configured');
+    throw new Error('Supabase client is not configured');
   }
   
   try {
@@ -139,9 +178,12 @@ export const deleteTemplate = async (id: string): Promise<void> => {
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao deletar template:', error);
+      throw error;
+    }
   } catch (error) {
-    console.error('Erro ao excluir template:', error);
+    console.error('Erro ao deletar template:', error);
     throw error;
   }
 };
