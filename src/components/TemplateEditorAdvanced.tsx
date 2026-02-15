@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from "react";
-import { ZoomIn, ZoomOut, Move, Pencil, Type, Image as ImageIcon, Trash2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Move, Pencil, Type, Image as ImageIcon, Trash2, Upload } from "lucide-react";
 import { Template, TemplateField, TemplateFieldType, TemplateSide } from "../types/template";
 
 interface Props {
@@ -24,7 +24,7 @@ export default function TemplateEditorAdvanced({ template, onChange }: Props) {
   const [selectedField, setSelectedField] = useState<string | null>(null);
   type ResizeHandle = 'left' | 'right' | 'top' | 'bottom';
 
-const [isResizing, setIsResizing] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<ResizeHandle | null>(null);
   const [resizeStart, setResizeStart] = useState<{ x: number; y: number; width: number; height: number }>({ x: 0, y: 0, width: 0, height: 0 });
   const [drawing, setDrawing] = useState<TemplateField | null>(null);
@@ -61,17 +61,12 @@ const [isResizing, setIsResizing] = useState(false);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
+    
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
+    setZoom(z => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta)));
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.altKey) {
-      setIsPanning(true);
-      setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-      return;
-    }
-
     if (mode === "move" && currentImage) {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
@@ -90,27 +85,11 @@ const [isResizing, setIsResizing] = useState(false);
 
       if (clickedField) {
         setSelectedField(clickedField.id);
-        
-        // Verificar se está na borda para redimensionar
-        const edge = 10; // Tolerância de 10px para detectar borda
-        const isLeftEdge = Math.abs(mouseX - clickedField.x * imageScale.x) < edge;
-        const isRightEdge = Math.abs(mouseX - (clickedField.x + clickedField.width) * imageScale.x) < edge;
-        const isTopEdge = Math.abs(mouseY - clickedField.y * imageScale.y) < edge;
-        const isBottomEdge = Math.abs(mouseY - (clickedField.y + clickedField.height) * imageScale.y) < edge;
-
-        let handle = '';
-        if (isLeftEdge) handle = 'left';
-        else if (isRightEdge) handle = 'right';
-        else if (isTopEdge) handle = 'top';
-        else if (isBottomEdge) handle = 'bottom';
-
-        if (handle) {
-          setIsResizing(true);
-          setResizeHandle(handle as ResizeHandle);
-          setResizeStart({ x: mouseX, y: mouseY, width: clickedField.width, height: clickedField.height });
-        }
+        setIsPanning(false);
       } else {
         setSelectedField(null);
+        setIsPanning(true);
+        setStartPan({ x: e.clientX - rect.left, y: e.clientY - rect.top });
       }
     } else if (mode === "draw" && currentImage) {
       const rect = containerRef.current?.getBoundingClientRect();
@@ -122,8 +101,8 @@ const [isResizing, setIsResizing] = useState(false);
 
       // Verificar regra: só pode existir 1 campo photo no back
       if (fieldType === 'photo' && currentSide === 'back') {
-        const existingPhotoField = currentTemplate.fields.find(
-          f => f.type === 'photo' && f.side === 'back'
+        const existingPhotoField = currentFields.find(f => 
+          f.type === 'photo' && f.side === 'back'
         );
         if (existingPhotoField) {
           alert('Já existe um campo de foto no verso. Apenas um é permitido.');
@@ -149,25 +128,13 @@ const [isResizing, setIsResizing] = useState(false);
     }
   }, [mode, currentImage, pan, zoom, imageScale, fieldType, currentSide, currentTemplate.fields]);
 
-  const updateField = useCallback((fieldId: string, updates: Partial<TemplateField>) => {
-    const updatedTemplate = {
-      ...currentTemplate,
-      fields: currentTemplate.fields.map(field => 
-        field.id === fieldId ? { ...field, ...updates } : field
-      )
-    };
-    onChange(updatedTemplate);
-  }, [currentTemplate, onChange]);
-
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (isPanning) {
       setPan({
         x: e.clientX - startPan.x,
-        y: e.clientY - startPan.y,
+        y: e.clientY - startPan.y
       });
-    }
-
-    if (isResizing && resizeHandle && selectedField) {
+    } else if (isResizing && resizeHandle && selectedField) {
       const field = currentTemplate.fields.find(f => f.id === selectedField);
       if (!field || field.locked) return;
 
@@ -201,7 +168,7 @@ const [isResizing, setIsResizing] = useState(false);
         x: newX,
         y: newY
       });
-    } else if (drawing) {
+    } else if (drawing && currentImage) {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
 
@@ -232,10 +199,22 @@ const [isResizing, setIsResizing] = useState(false);
       };
 
       onChange(updatedTemplate);
+      setDrawing(null);
     }
-    setDrawing(null);
+    setIsResizing(false);
+    setResizeHandle(null);
     setIsPanning(false);
   }, [drawing, currentTemplate, onChange]);
+
+  const updateField = useCallback((fieldId: string, updates: Partial<TemplateField>) => {
+    const updatedTemplate = {
+      ...currentTemplate,
+      fields: currentTemplate.fields.map(field => 
+        field.id === fieldId ? { ...field, ...updates } : field
+      )
+    };
+    onChange(updatedTemplate);
+  }, [currentTemplate, onChange]);
 
   const deleteField = useCallback((fieldId: string) => {
     // Não permitir deletar campo photo locked
@@ -257,6 +236,19 @@ const [isResizing, setIsResizing] = useState(false);
     setZoom(1);
     setPan({ x: 0, y: 0 });
   }, []);
+
+  const handleImageUpload = (side: 'front' | 'back', file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageUrl = event.target?.result as string;
+      const updatedTemplate = {
+        ...currentTemplate,
+        [side === 'front' ? 'frontImageUrl' : 'backImageUrl']: imageUrl
+      };
+      onChange(updatedTemplate);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <div className="w-full h-full flex flex-col bg-gray-900 text-white">
@@ -299,6 +291,24 @@ const [isResizing, setIsResizing] = useState(false);
 
         <div className="w-px h-6 bg-gray-600" />
 
+        {/* Upload de Imagem */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Upload de Imagem - {currentSide === 'front' ? 'Frente' : 'Verso'}
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                handleImageUpload(currentSide, file);
+              }
+            }}
+            className="block w-full text-sm text-gray-300 bg-gray-700 border border-gray-600 rounded-md p-2"
+          />
+        </div>
+
         {/* Zoom */}
         <button onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - 0.1))} className="p-1 hover:bg-gray-700">
           <ZoomOut size={18} />
@@ -310,30 +320,10 @@ const [isResizing, setIsResizing] = useState(false);
         <button onClick={resetView} className="p-1 hover:bg-gray-700" title="Resetar Visualização">
           <Move size={18} />
         </button>
+      </div>
 
-        <div className="w-px h-6 bg-gray-600" />
-
-        {/* Lado do Template */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setCurrentSide('front')}
-            className={`px-2 py-1 text-xs rounded ${currentSide === 'front' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-500'}`}
-          >
-            Frente
-          </button>
-          {currentTemplate.backImageUrl && (
-            <button
-              onClick={() => setCurrentSide('back')}
-              className={`px-2 py-1 text-xs rounded ${currentSide === 'back' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-500'}`}
-            >
-              Verso
-            </button>
-          )}
-        </div>
-
-        <div className="w-px h-6 bg-gray-600" />
-
-        {/* Ações */}
+      {/* Ações */}
+      <div className="flex items-center gap-2 p-2 bg-gray-800 border-b border-gray-700">
         {selectedField && !currentTemplate.fields.find(f => f.id === selectedField)?.locked && (
           <button 
             onClick={() => deleteField(selectedField)} 
@@ -344,6 +334,26 @@ const [isResizing, setIsResizing] = useState(false);
           </button>
         )}
       </div>
+
+      {/* Botões de Lado */}
+      <div className="flex items-center gap-1">
+        <button 
+          onClick={() => setCurrentSide('front')}
+          className={`px-2 py-1 text-xs rounded ${currentSide === 'front' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-500'}`}
+        >
+          Frente
+        </button>
+        {currentTemplate.backImageUrl && (
+          <button
+            onClick={() => setCurrentSide('back')}
+            className={`px-2 py-1 text-xs rounded ${currentSide === 'back' ? 'bg-blue-600' : 'bg-gray-600 hover:bg-gray-500'}`}
+          >
+            Verso
+          </button>
+        )}
+      </div>
+
+      <div className="w-px h-6 bg-gray-600" />
 
       {/* Canvas */}
       <div
@@ -373,7 +383,6 @@ const [isResizing, setIsResizing] = useState(false);
               alt="Template"
               className="absolute top-0 left-0"
               style={{
-                width: `${currentTemplate.width}px`,
                 height: `${currentTemplate.height}px`,
               }}
               onLoad={() => {
@@ -422,43 +431,22 @@ const [isResizing, setIsResizing] = useState(false);
                   <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-blue-500 rounded-full cursor-se-resize" />
                 </>
               )}
-
-              {field.locked && (
-                <div className="absolute top-0 right-0 text-xs bg-red-500 text-white px-1 rounded-bl">
-                  🔒
-                </div>
-              )}
             </div>
           ))}
 
-          {/* Campo Sendo Desenhado */}
+          {/* Campo sendo desenhado */}
           {drawing && (
             <div
               style={{
                 left: drawing.x * imageScale.x,
                 top: drawing.y * imageScale.y,
-                width: drawing.width * imageScale.x,
-                height: drawing.height * imageScale.y,
+                width: Math.abs(drawing.width) * imageScale.x,
+                height: Math.abs(drawing.height) * imageScale.y,
+                border: '2px dashed #3b82f6',
               }}
-              className={`absolute border-2 border-blue-400 bg-blue-400/20 pointer-events-none ${
-                drawing.type === 'photo' ? 'border-purple-400 bg-purple-400/20' : ''
-              }`}
+              className="absolute border-2 border-dashed border-blue-400"
             />
           )}
-        </div>
-      </div>
-
-      {/* Status Bar */}
-      <div className="flex items-center justify-between p-2 bg-gray-800 border-t border-gray-700 text-xs">
-        <div className="flex items-center gap-4">
-          <span>Lado: {currentSide === 'front' ? 'Frente' : 'Verso'}</span>
-          <span>Campos: {currentFields.length}</span>
-          <span>Modo: {mode === 'draw' ? 'Desenhar' : 'Mover'}</span>
-          <span>Escala: {imageScale.x.toFixed(2)}x, {imageScale.y.toFixed(2)}y</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <span>Zoom: {Math.round(zoom * 100)}%</span>
-          <span>Alt + Arrastar: Pan</span>
         </div>
       </div>
     </div>
