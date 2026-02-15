@@ -58,17 +58,7 @@ export const getAllTemplates = async (): Promise<Template[]> => {
   try {
     const { data, error } = await supabase
       .from('templates')
-      .select(`
-        id,
-        name,
-        frontImageUrl,
-        backImageUrl,
-        width,
-        height,
-        fields,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -80,7 +70,7 @@ export const getAllTemplates = async (): Promise<Template[]> => {
       return [];
     }
     
-    return data.map((dbTemplate: TemplateDB) => fromDBFormat(dbTemplate));
+    return data.map((dbTemplate: any) => fromDBFormat(dbTemplate));
   } catch (error) {
     console.error('Erro ao buscar templates:', error);
     throw error;
@@ -96,17 +86,7 @@ export const getTemplateById = async (id: string): Promise<Template> => {
   try {
     const { data, error } = await supabase
       .from('templates')
-      .select(`
-        id,
-        name,
-        frontImageUrl,
-        backImageUrl,
-        width,
-        height,
-        fields,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .eq('id', id)
       .single();
 
